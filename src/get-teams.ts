@@ -3,7 +3,7 @@ import { getPuppeteer } from "./puppeteer";
 
 const TEAMS_URL = "https://www.marca.com/futbol/primera/equipos.html";
 
-async function getTeamsFromTeam(page: Page) {
+async function getTeamsFromTeamsPage(page: Page) {
   console.log("Going to: ", TEAMS_URL);
   await page.goto(TEAMS_URL);
 
@@ -29,7 +29,7 @@ async function getTeamsFromTeam(page: Page) {
 export async function getTeams() {
   const { page, browser } = await getPuppeteer();
   try {
-    await getTeamsFromTeam(page);
+    await getTeamsFromTeamsPage(page);
   } catch (error) {
     console.error("Error:", error);
   } finally {
