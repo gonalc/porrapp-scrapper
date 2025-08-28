@@ -1,3 +1,5 @@
 import { getTeams } from "./get-teams";
 
-await getTeams();
+const teams = await getTeams();
+
+console.log('Teams: ', teams);

@@ -1,7 +1,14 @@
 import type { Page } from "puppeteer/lib/types.d.ts";
 import { getPuppeteer } from "./puppeteer";
+import { slugify } from "./utils/sluggify";
 
 const TEAMS_URL = "https://www.marca.com/futbol/primera/equipos.html";
+
+type Team = {
+  name: string;
+  badgeUrl: string;
+  slug: string;
+};
 
 async function getTeamsFromTeamsPage(page: Page) {
   console.log("Going to: ", TEAMS_URL);
@@ -16,20 +23,31 @@ async function getTeamsFromTeamsPage(page: Page) {
 
   const teams = await page.$$(singleTeamSelector);
 
+  const parsedTeams: Team[] = [];
+
   for (const team of teams) {
     const teamBadgeUrl = await team.$eval("img", (el) =>
       el.getAttribute("src"),
     );
-    console.log("Team badge:", teamBadgeUrl);
+
     const teamName = await team.$eval("h3", (el) => el.textContent);
-    console.log("Team name:", teamName);
+
+    parsedTeams.push({
+      name: teamName,
+      badgeUrl: teamBadgeUrl,
+      slug: slugify(teamName),
+    });
   }
+
+  return parsedTeams;
 }
 
 export async function getTeams() {
   const { page, browser } = await getPuppeteer();
   try {
-    await getTeamsFromTeamsPage(page);
+    const teams = await getTeamsFromTeamsPage(page);
+
+    return teams;
   } catch (error) {
     console.error("Error:", error);
   } finally {
