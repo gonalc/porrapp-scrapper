@@ -1,5 +1,8 @@
 import { getNextGames } from "./next-games";
+import { SupabaseService } from "./services/supabase";
 
 const nextGames = await getNextGames();
 
-console.log('NEXT GAMES: ', nextGames)
+const supabase = new SupabaseService();
+
+await supabase.insertGames(nextGames);
