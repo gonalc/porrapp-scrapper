@@ -4,9 +4,9 @@ import { slugify } from "./utils/sluggify";
 
 const TEAMS_URL = "https://www.marca.com/futbol/primera/equipos.html";
 
-type Team = {
+export type Team = {
   name: string;
-  badgeUrl: string;
+  badge_url: string;
   slug: string;
 };
 
@@ -34,7 +34,7 @@ async function getTeamsFromTeamsPage(page: Page) {
 
     parsedTeams.push({
       name: teamName,
-      badgeUrl: teamBadgeUrl,
+      badge_url: teamBadgeUrl,
       slug: slugify(teamName),
     });
   }
