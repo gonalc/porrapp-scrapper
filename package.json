@@ -15,6 +15,7 @@
     "typescript": "^5"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.56.1",
     "puppeteer": "^24.17.1"
   }
 }

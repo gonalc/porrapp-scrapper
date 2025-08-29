@@ -1,5 +1,5 @@
 import type { Page } from "puppeteer/lib/types.d.ts";
-import { getPuppeteer } from "./puppeteer";
+import { getPuppeteer } from "./services/puppeteer";
 import { slugify } from "./utils/sluggify";
 
 const TEAMS_URL = "https://www.marca.com/futbol/primera/equipos.html";
