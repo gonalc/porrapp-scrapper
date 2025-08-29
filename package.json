@@ -16,6 +16,7 @@
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.56.1",
+    "dayjs": "^1.11.16",
     "puppeteer": "^24.17.1"
   }
 }
