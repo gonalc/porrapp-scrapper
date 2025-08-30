@@ -17,22 +17,38 @@ export class SupabaseService {
   }
 
   async insertTeams(teams: Team[]) {
-    const { data, error } = await this.supabase
+    const { error } = await this.supabase
       .from(this.TEAMS_TABLE)
       .insert(teams)
       .select();
 
-    console.log({ data, error });
+    console.log({ error });
   }
 
   async insertGames(games: GameEntrySupabase[]) {
-    const { data, error } = await this.supabase
+    const { error } = await this.supabase
       .from(this.GAMES_TABLE)
       .upsert(games, {
         onConflict: "code",
       })
       .select();
 
-    console.log({ data, error });
+    console.log({ error });
+  }
+
+  async getGameByCode(code: string) {
+    const { data, error } = await this.supabase
+      .from(this.GAMES_TABLE)
+      .select()
+      .eq("code", code)
+      .single();
+
+    if (error) {
+      console.log({ error });
+    }
+
+    console.log({ data });
+
+    return data;
   }
 }

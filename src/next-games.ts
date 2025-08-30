@@ -6,8 +6,8 @@ export type GameEntrySupabase = {
   date: Date;
   tournament_name: string;
   location: string;
-  home_team: object;
-  away_team: object;
+  home_team: Record<string, any> & { fullName: string };
+  away_team: Record<string, any> & { fullName: string };
   match_day: string;
   season: string;
   status: string;
