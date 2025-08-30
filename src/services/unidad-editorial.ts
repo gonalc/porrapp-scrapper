@@ -1,3 +1,6 @@
+import type { Dayjs } from "dayjs";
+import { UNIDAD_EDITORIAL_FORMAT } from "../utils/dates";
+
 // Alternative names interface for internationalization
 interface AlternateNames {
   esES: string;
@@ -202,23 +205,28 @@ export type {
   Images,
   CompetitorEditorialInfo,
   UrlsDataCenter,
-  EditorialUrl
+  EditorialUrl,
 };
 
 export class UnidadEditorialService {
   private static baseUrl = "https://api.unidadeditorial.es";
 
-  static async getGames() {
-    const url = new URL("/sports/v1/events", this.baseUrl);
-    url.searchParams.set("site", "2");
-    url.searchParams.set("tournament", "0101");
-    // url.searchParams.set('fields', 'sport,tournament,sportEvent,score,tv,editorialInfo');
-    url.searchParams.set("fields", "sportEvent,score,tournament");
-    url.searchParams.set("timezoneOffset", "2");
-    url.searchParams.set("date", "2025-8-29");
+  static async getGames(date: Dayjs) {
+    try {
+      const url = new URL("/sports/v1/events", this.baseUrl);
+      url.searchParams.set("site", "2");
+      url.searchParams.set("tournament", "0101");
+      // url.searchParams.set('fields', 'sport,tournament,sportEvent,score,tv,editorialInfo');
+      url.searchParams.set("fields", "sportEvent,score,tournament");
+      url.searchParams.set("timezoneOffset", "2");
+      url.searchParams.set("date", date.format(UNIDAD_EDITORIAL_FORMAT));
 
-    const response = await fetch(url.toString());
-    const { data }: LaLigaApiResponse = await response.json();
-    return data;
+      const response = await fetch(url.toString());
+      const { data }: LaLigaApiResponse = await response.json();
+      return data;
+    } catch (error) {
+      console.error("Error fetching data:", error);
+      return [];
+    }
   }
 }

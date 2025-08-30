@@ -1,3 +1,4 @@
+import type { Dayjs } from "dayjs";
 import { UnidadEditorialService, type Score } from "./services/unidad-editorial";
 
 export type GameEntrySupabase = {
@@ -13,8 +14,8 @@ export type GameEntrySupabase = {
   score: Score;
 }
 
-export async function getNextGames() {
-  const nextGames = await UnidadEditorialService.getGames();
+export async function getNextGames(date: Dayjs) {
+  const nextGames = await UnidadEditorialService.getGames(date);
 
   const games: GameEntrySupabase[] = nextGames.map(game => {
     return {
