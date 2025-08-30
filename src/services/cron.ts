@@ -1,14 +1,13 @@
-import type { SupabaseClient } from "@supabase/supabase-js";
 import cron from "node-cron";
 import { SupabaseService } from "./supabase";
-import dayjs, { UNIDAD_EDITORIAL_FORMAT } from "../utils/dates";
+import dayjs from "../utils/dates";
 import { getNextGames, type GameEntrySupabase } from "../next-games";
 
 export class CronService {
   private EVERY_MINUTE = "* * * * *";
   private EVERY_DAY = "0 3 * * *";
 
-  private FINISHED_STATUS = 'Finalizado';
+  private FINISHED_STATUS = "Finalizado";
 
   private supabase: SupabaseService;
 
@@ -58,6 +57,23 @@ export class CronService {
     return job;
   }
 
+  private getGameUpdates(
+    currentGame: GameEntrySupabase,
+    liveGame: GameEntrySupabase,
+  ) {
+    const statusUpdate = liveGame.status !== currentGame.status;
+
+    const currentHomeScore = currentGame.score.homeTeam.totalScore;
+    const currentAwayScore = currentGame.score.awayTeam.totalScore;
+    const liveHomeScore = liveGame.score.homeTeam.totalScore;
+    const liveAwayScore = liveGame.score.awayTeam.totalScore;
+
+    const homeTeamScored = currentHomeScore !== liveHomeScore;
+    const awayTeamScored = currentAwayScore !== liveAwayScore;
+
+    return { statusUpdate, homeTeamScored, awayTeamScored };
+  }
+
   private handleRealTimeGameJob(game: GameEntrySupabase) {
     const startTime = dayjs(game.date);
 
@@ -83,8 +99,22 @@ export class CronService {
 
       const currentGame = await this.supabase.getGameByCode(liveGame.code);
 
-      // Compare current game status with live game status
-      // Update game in supabase
+      const { statusUpdate, homeTeamScored, awayTeamScored } =
+        this.getGameUpdates(currentGame, liveGame);
+
+      if (statusUpdate) {
+        console.log("game status updated: ", liveGame.status);
+      }
+
+      if (homeTeamScored) {
+        console.log("home team scored");
+      }
+
+      if (awayTeamScored) {
+        console.log("away team scored");
+      }
+
+      await this.supabase.updateGame(liveGame);
 
       if (liveGame.status === this.FINISHED_STATUS) {
         job.stop();

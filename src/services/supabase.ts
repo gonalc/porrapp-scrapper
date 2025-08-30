@@ -6,10 +6,10 @@ const supabaseUrl = process.env.SUPABASE_PROJECT_URL!;
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 
 export class SupabaseService {
-  supabase: SupabaseClient;
+  private supabase: SupabaseClient;
 
-  TEAMS_TABLE = "teams";
-  GAMES_TABLE = "games";
+  private TEAMS_TABLE = "teams";
+  private GAMES_TABLE = "games";
 
   constructor() {
     this.supabase = createClient(supabaseUrl, supabaseKey);
@@ -47,7 +47,20 @@ export class SupabaseService {
       console.log({ error });
     }
 
-    console.log({ data });
+    return data;
+  }
+
+  async updateGame(game: GameEntrySupabase) {
+    const { data, error } = await this.supabase
+      .from(this.GAMES_TABLE)
+      .update(game)
+      .eq("code", game.code)
+      .select()
+      .single();
+
+    if (error) {
+      console.log({ error });
+    }
 
     return data;
   }
