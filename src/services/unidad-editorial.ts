@@ -156,13 +156,6 @@ interface Score {
   period: Period;
 }
 
-// Editorial information for the match
-interface EditorialInfo {
-  site: string;
-  url: string;
-  otherUrls: EditorialUrl[];
-}
-
 // Main match data interface
 interface MatchData {
   id: string;
