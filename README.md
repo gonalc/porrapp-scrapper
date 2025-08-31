@@ -1,6 +1,6 @@
 # PorrApp Scraper
 
-A real-time La Liga match data collector built with Bun that fetches game information and stores it in Supabase.
+A real-time football matches data collector built with Bun that fetches game information and stores it in Supabase.
 
 ## 🚀 Features
 
@@ -29,7 +29,7 @@ A real-time La Liga match data collector built with Bun that fetches game inform
    ```
 
 3. **Set up environment variables**
-   
+
    Create a `.env` file in the root directory:
    ```env
    SUPABASE_PROJECT_URL=your_supabase_project_url
@@ -37,7 +37,7 @@ A real-time La Liga match data collector built with Bun that fetches game inform
    ```
 
 4. **Set up Supabase tables**
-   
+
    Create the following table in your Supabase project:
 
    **Games table:**
