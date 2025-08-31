@@ -5,10 +5,14 @@
   "private": true,
   "scripts": {
     "start": "bun run src/index.ts",
-    "lint": "oxlint"
+    "lint": "oxlint",
+    "prepare": "husky",
+    "lint-staged": "lint-staged"
   },
   "devDependencies": {
     "@types/bun": "latest",
+    "husky": "^9.1.7",
+    "lint-staged": "^16.1.5",
     "oxlint": "^1.14.0"
   },
   "peerDependencies": {
@@ -18,5 +22,8 @@
     "@supabase/supabase-js": "^2.56.1",
     "dayjs": "^1.11.16",
     "node-cron": "^4.2.1"
+  },
+  "lint-staged": {
+    "**/*.{js,mjs,cjs,jsx,ts,mts,cts,tsx}": "oxlint --fix"
   }
 }
