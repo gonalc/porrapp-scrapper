@@ -99,7 +99,7 @@ interface Status {
 }
 
 // Sport information
-interface Sport {
+export interface Sport {
   id: string;
   name: string;
   alternateNames: AlternateNames;
@@ -181,32 +181,6 @@ interface LaLigaApiResponse {
   data: MatchData[];
   timestamp: string;
 }
-
-export type {
-  LaLigaApiResponse,
-  MatchData,
-  Sport,
-  Tournament,
-  SportEvent,
-  Team,
-  Competitors,
-  Location,
-  Season,
-  Phase,
-  Group,
-  Status,
-  Score,
-  TeamScore,
-  Winner,
-  Period,
-  EditorialInfo,
-  AlternateNames,
-  ImageUrlSizes,
-  Images,
-  CompetitorEditorialInfo,
-  UrlsDataCenter,
-  EditorialUrl,
-};
 
 export class UnidadEditorialService {
   private static baseUrl = "https://api.unidadeditorial.es";

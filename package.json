@@ -4,12 +4,10 @@
   "type": "module",
   "private": true,
   "scripts": {
-    "start": "bun run src/index.ts",
-    "test": "vitest"
+    "start": "bun run src/index.ts"
   },
   "devDependencies": {
-    "@types/bun": "latest",
-    "vitest": "^3.2.4"
+    "@types/bun": "latest"
   },
   "peerDependencies": {
     "typescript": "^5"
@@ -17,7 +15,6 @@
   "dependencies": {
     "@supabase/supabase-js": "^2.56.1",
     "dayjs": "^1.11.16",
-    "node-cron": "^4.2.1",
-    "puppeteer": "^24.17.1"
+    "node-cron": "^4.2.1"
   }
 }
