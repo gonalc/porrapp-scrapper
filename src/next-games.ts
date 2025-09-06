@@ -1,9 +1,14 @@
 import type { Dayjs } from "dayjs";
-import { UnidadEditorialService, type Score } from "./services/unidad-editorial";
+import dayjs, { EUROPE_MADRID_TIMEZONE } from "./utils/dates";
+import {
+  UnidadEditorialService,
+  type Score,
+} from "./services/unidad-editorial";
 
 export type GameEntrySupabase = {
   code: string;
   date: Date;
+  datetime: Date;
   tournament_name: string;
   location: string;
   home_team: Record<string, any> & { fullName: string };
@@ -12,15 +17,16 @@ export type GameEntrySupabase = {
   season: string;
   status: string;
   score: Score;
-}
+};
 
 export async function getNextGames(date: Dayjs) {
   const nextGames = await UnidadEditorialService.getGames(date);
 
-  const games: GameEntrySupabase[] = nextGames.map(game => {
+  const games: GameEntrySupabase[] = nextGames.map((game) => {
     return {
       code: game.id,
       date: new Date(game.startDate),
+      datetime: dayjs(game.startDate).tz(EUROPE_MADRID_TIMEZONE).toDate(),
       tournament_name: game.tournament.name,
       location: game.sportEvent.location.name,
       home_team: game.sportEvent.competitors.homeTeam,
@@ -28,9 +34,9 @@ export async function getNextGames(date: Dayjs) {
       match_day: game.sportEvent.matchDay,
       season: game.sportEvent.season.name,
       status: game.sportEvent.status.name,
-      score: game.score
-    }
-  })
+      score: game.score,
+    };
+  });
 
   return games;
 }
