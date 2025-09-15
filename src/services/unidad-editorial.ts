@@ -149,7 +149,7 @@ interface Period {
 }
 
 // Complete score information
-interface Score {
+export interface Score {
   homeTeam: TeamScore;
   awayTeam: TeamScore;
   winner: Winner;
