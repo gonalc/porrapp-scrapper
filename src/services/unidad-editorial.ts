@@ -175,14 +175,19 @@ interface LaLigaApiResponse {
   timestamp: string;
 }
 
+enum Tournaments {
+  LaLiga = "0101",
+  ChampionsLeague = "0103",
+}
+
 export class UnidadEditorialService {
   private static baseUrl = "https://api.unidadeditorial.es";
 
-  static async getGames(date: Dayjs) {
+  static async getGames(date: Dayjs, tournament: Tournaments = Tournaments.LaLiga) {
     try {
       const url = new URL("/sports/v1/events", this.baseUrl);
       url.searchParams.set("site", "2");
-      url.searchParams.set("tournament", "0101");
+      url.searchParams.set("tournament", tournament);
       // url.searchParams.set('fields', 'sport,tournament,sportEvent,score,tv,editorialInfo');
       url.searchParams.set("fields", "sportEvent,score,tournament");
       url.searchParams.set("timezoneOffset", "2");
