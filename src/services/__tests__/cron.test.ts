@@ -8,7 +8,7 @@ const mockJob = {
 };
 
 const mockCron = {
-  schedule: mock(() => mockJob)
+  schedule: mock((_pattern, _callback) => mockJob)
 };
 
 mock.module("node-cron", () => ({
@@ -270,7 +270,7 @@ describe("CronService", () => {
       expect(mockCron.schedule).toHaveBeenCalledWith("0 3 * * *", expect.any(Function));
       expect(mockJob.start).toHaveBeenCalled();
       expect(cronService['todayGames']).toEqual([todayGame]);
-      expect(result).toBe(mockJob);
+      expect(result).toBe(mockJob as any);
     });
 
     test("should call getWeekGames immediately and update todayGames", async () => {
@@ -302,7 +302,7 @@ describe("CronService", () => {
 
     test("should execute cron job callback correctly", async () => {
       let cronCallback: Function;
-      mockCron.schedule.mockImplementation((pattern, callback) => {
+      mockCron.schedule.mockImplementation((_pattern, callback) => {
         cronCallback = callback;
         return mockJob;
       });
@@ -334,7 +334,7 @@ describe("CronService", () => {
       const todayGame = createMockGame();
       mockGetNextGames.mockResolvedValue([todayGame]);
 
-      await cronCallback();
+      await cronCallback!();
 
       expect(mockGetNextGames).toHaveBeenCalled();
     });
@@ -449,7 +449,7 @@ describe("CronService", () => {
 
       expect(mockCron.schedule).toHaveBeenCalledWith("* * * * *", expect.any(Function));
       expect(mockJob.start).toHaveBeenCalled();
-      expect(result).toBe(mockJob);
+      expect(result).toBe(mockJob as any);
     });
 
     test("should log countdown when game hasn't started", async () => {
@@ -473,7 +473,7 @@ describe("CronService", () => {
       });
 
       cronService['handleRealTimeGameJob'](game);
-      await cronCallback();
+      await cronCallback!();
 
       // The test might find the game or not, depending on the real dayjs behavior
       // Let's just check that some logging happened indicating game processing
@@ -514,7 +514,7 @@ describe("CronService", () => {
       mockSupabaseMethods.getGameByCode.mockResolvedValue(currentGame);
 
       cronService['handleRealTimeGameJob'](game);
-      await cronCallback();
+      await cronCallback!();
 
       expect(mockGetNextGames).toHaveBeenCalledTimes(1);
       expect(mockSupabaseMethods.getGameByCode).toHaveBeenCalledWith("game-123");
@@ -543,7 +543,7 @@ describe("CronService", () => {
       mockGetNextGames.mockResolvedValue([]);
 
       cronService['handleRealTimeGameJob'](game);
-      await cronCallback();
+      await cronCallback!();
 
       expect(consoleSpy.log).toHaveBeenCalledWith(
         "Can't find game Real Madrid - Barcelona"
@@ -578,7 +578,7 @@ describe("CronService", () => {
       mockSupabaseMethods.getGameByCode.mockResolvedValue(currentGame);
 
       cronService['handleRealTimeGameJob'](game);
-      await cronCallback();
+      await cronCallback!();
 
       expect(mockSupabaseMethods.updateGame).toHaveBeenCalledWith(finishedLiveGame);
       expect(mockJob.stop).toHaveBeenCalled();
@@ -616,7 +616,7 @@ describe("CronService", () => {
       mockSupabaseMethods.getGameByCode.mockResolvedValue(currentGame);
 
       cronService['handleRealTimeGameJob'](game);
-      await cronCallback();
+      await cronCallback!();
 
       expect(consoleSpy.log).toHaveBeenCalledWith("away team scored");
     });
@@ -645,7 +645,7 @@ describe("CronService", () => {
 
       cronService['handleRealTimeGameJob'](game);
 
-      await expect(cronCallback()).rejects.toThrow("Database Error");
+      expect(cronCallback!()).rejects.toThrow("Database Error");
     });
   });
 
