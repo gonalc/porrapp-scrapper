@@ -14,6 +14,29 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Fetch tags
+        run: git fetch --tags
+
+      - name: Calculate next version
+        id: version
+        run: |
+          # Get the latest tag, default to v0.0.0 if no tags exist
+          LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
+          echo "Latest tag: $LATEST_TAG"
+          
+          # Remove 'v' prefix and split version
+          VERSION=${LATEST_TAG#v}
+          IFS='.' read -r MAJOR MINOR PATCH <<< "$VERSION"
+          
+          # Increment minor version and reset patch to 0
+          MINOR=$((MINOR + 1))
+          PATCH=0
+          
+          # Create new version
+          NEW_VERSION="v${MAJOR}.${MINOR}.${PATCH}"
+          echo "New version: $NEW_VERSION"
+          echo "version=$NEW_VERSION" >> $GITHUB_OUTPUT
+
       - name: Set up Bun
         uses: oven-sh/setup-bun@v2
         with:
@@ -28,13 +51,13 @@ jobs:
       - name: Package artifact
         run: |
           mkdir -p artifact
-          tar -czf artifact/release-${{ github.sha }}.tar.gz -C dist .
+          tar -czf artifact/release-${{ steps.version.outputs.version }}.tar.gz -C dist .
 
       - name: Publish GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ github.sha }}
-          name: Release ${{ github.sha }}
-          files: artifact/release-${{ github.sha }}.tar.gz
+          tag_name: ${{ steps.version.outputs.version }}
+          name: Release ${{ steps.version.outputs.version }}
+          files: artifact/release-${{ steps.version.outputs.version }}.tar.gz
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
