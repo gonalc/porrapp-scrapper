@@ -182,6 +182,7 @@ enum Tournaments {
 
 export class UnidadEditorialService {
   private static baseUrl = "https://api.unidadeditorial.es";
+  private static NO_CONTENT_STATUS = 204;
 
   static async getGames(date: Dayjs, tournament: Tournaments = Tournaments.LaLiga) {
     try {
@@ -194,6 +195,11 @@ export class UnidadEditorialService {
       url.searchParams.set("date", date.format(UNIDAD_EDITORIAL_FORMAT));
 
       const response = await fetch(url.toString());
+
+      if (response.status === this.NO_CONTENT_STATUS) {
+        return [];
+      }
+
       const { data }: LaLigaApiResponse = await response.json();
       return data;
     } catch (error) {
