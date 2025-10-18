@@ -24,8 +24,6 @@ export class CronService {
 
     let date = today.subtract(1, "day");
 
-    const supabase = new SupabaseService();
-
     const todayGames: GameEntrySupabase[] = [];
 
     while (date.isSameOrBefore(topDate)) {
@@ -35,7 +33,7 @@ export class CronService {
         todayGames.push(...nextGames);
       }
 
-      await supabase.insertGames(nextGames);
+      await this.supabase.insertGames(nextGames);
 
       date = date.add(1, "day");
     }
