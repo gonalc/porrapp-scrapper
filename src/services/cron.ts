@@ -1,4 +1,5 @@
 import cron from "node-cron";
+import chalk from "chalk";
 import { SupabaseService } from "./supabase";
 import dayjs from "../utils/dates";
 import { getNextGames, type GameEntrySupabase } from "../next-games";
@@ -76,22 +77,35 @@ export class CronService {
 
   private handleRealTimeGameJob(game: GameEntrySupabase) {
     console.log("");
-    console.log("====================");
+    console.log(chalk.cyan("═".repeat(80)));
     console.log("");
     console.log(
-      `Handling real-time game job for ${game.home_team.fullName} - ${game.away_team.fullName}`,
+      chalk.bold.blue("🎮 Real-Time Tracker Started") +
+      chalk.gray(" │ ") +
+      chalk.white(`${game.home_team.fullName} vs ${game.away_team.fullName}`)
     );
+    console.log(chalk.gray(`   Started at: ${dayjs().format("HH:mm:ss")}`));
+    console.log("");
 
     const startTime = dayjs(game.date);
 
     const job = cron.schedule(this.EVERY_MINUTE, async () => {
-      console.log(`Checking game ${game.home_team.fullName} - ${game.away_team.fullName}`);
       const now = dayjs();
+      const timestamp = chalk.gray(`[${now.format("HH:mm:ss")}]`);
+
+      console.log(timestamp + " " + chalk.dim("Checking game status..."));
 
       if (now.isBefore(startTime)) {
+        const minutesLeft = startTime.diff(now, "minutes");
         console.log(
-          `Game ${game.home_team.fullName} - ${game.away_team.fullName} starts in ${startTime.diff(now, "minutes")} minutes`,
+          timestamp + " " +
+          chalk.yellow("⏱️  Countdown") +
+          chalk.gray(" │ ") +
+          chalk.white(`${game.home_team.fullName} vs ${game.away_team.fullName}`) +
+          chalk.gray(" │ ") +
+          chalk.yellow(`Starts in ${minutesLeft} min`)
         );
+        console.log("");
         return;
       }
 
@@ -100,8 +114,12 @@ export class CronService {
 
       if (!liveGame) {
         console.log(
-          `Can't find game ${game.home_team.fullName} - ${game.away_team.fullName}`,
+          timestamp + " " +
+          chalk.red("❌ Game Not Found") +
+          chalk.gray(" │ ") +
+          chalk.white(`${game.home_team.fullName} vs ${game.away_team.fullName}`)
         );
+        console.log("");
         return;
       }
 
@@ -110,29 +128,70 @@ export class CronService {
       const { statusUpdate, homeTeamScored, awayTeamScored } =
         this.getGameUpdates(currentGame, liveGame);
 
+      // Display game header
+      console.log(
+        timestamp + " " +
+        chalk.bold.white(`${liveGame.home_team.fullName}`) +
+        chalk.gray(" vs ") +
+        chalk.bold.white(`${liveGame.away_team.fullName}`) +
+        chalk.gray(" │ ") +
+        chalk.cyan(`${liveGame.score.homeTeam.totalScore}-${liveGame.score.awayTeam.totalScore}`)
+      );
+
+      // Status update
       if (statusUpdate) {
-        console.log("game status updated: ", liveGame.status);
+        const statusEmoji = liveGame.status === this.FINISHED_STATUS ? "🏁" : 
+                           liveGame.status === this.IN_PROGRESS_STATUS ? "▶️" : "📋";
+        console.log(
+          "   " + statusEmoji + " " +
+          chalk.bold.magenta("Status Changed") +
+          chalk.gray(" → ") +
+          chalk.white(liveGame.status)
+        );
       } else {
-        console.log('game status remain the same')
+        console.log(
+          "   " + chalk.dim("📊 Status: ") + chalk.gray(liveGame.status)
+        );
       }
 
+      // Goal updates
       if (homeTeamScored) {
-        console.log("home team scored");
+        console.log(
+          "   " + chalk.bold.green("⚽ GOAL!") +
+          chalk.gray(" │ ") +
+          chalk.white(liveGame.home_team.fullName) +
+          chalk.gray(" scored! ") +
+          chalk.green(`(${liveGame.score.homeTeam.totalScore})`)
+        );
       }
 
       if (awayTeamScored) {
-        console.log("away team scored");
+        console.log(
+          "   " + chalk.bold.green("⚽ GOAL!") +
+          chalk.gray(" │ ") +
+          chalk.white(liveGame.away_team.fullName) +
+          chalk.gray(" scored! ") +
+          chalk.green(`(${liveGame.score.awayTeam.totalScore})`)
+        );
       }
 
       if (!homeTeamScored && !awayTeamScored) {
-        console.log("no goals scored");
+        console.log("   " + chalk.dim("💤 No goals scored"));
       }
 
-      console.log('----------------')
+      console.log(chalk.gray("   " + "─".repeat(76)));
+      console.log("");
 
       await this.supabase.updateGame(liveGame);
 
       if (liveGame.status === this.FINISHED_STATUS) {
+        console.log(
+          chalk.bold.green("🏁 GAME FINISHED") +
+          chalk.gray(" │ ") +
+          chalk.white(`Final Score: ${liveGame.score.homeTeam.totalScore}-${liveGame.score.awayTeam.totalScore}`)
+        );
+        console.log(chalk.cyan("═".repeat(80)));
+        console.log("");
         job.stop();
       }
     });
@@ -143,28 +202,69 @@ export class CronService {
   }
 
   private printGameInfo(game: GameEntrySupabase) {
+    const statusIcon = 
+      game.status === this.PENDING_STATUS ? "📅" :
+      game.status === this.IN_PROGRESS_STATUS ? "🟢" :
+      game.status === this.FINISHED_STATUS ? "✅" : "📋";
+
     if (game.status === this.PENDING_STATUS) {
       console.log(
-        `${game.home_team.fullName} - ${game.away_team.fullName} starts at ${dayjs(game.date).format("DD/MM/YYYY HH:mm")}`,
+        "   " + statusIcon + " " +
+        chalk.yellow(game.status.padEnd(12)) +
+        chalk.gray("│") + " " +
+        chalk.white(`${game.home_team.fullName}`) +
+        chalk.dim(" vs ") +
+        chalk.white(`${game.away_team.fullName}`) +
+        chalk.gray(" │ ") +
+        chalk.cyan(dayjs(game.date).format("DD/MM HH:mm"))
       );
     } else {
+      const homeScore = game.score.homeTeam.totalScore;
+      const awayScore = game.score.awayTeam.totalScore;
+      const scoreColor = game.status === this.FINISHED_STATUS ? chalk.bold.green : chalk.bold.cyan;
+      
       console.log(
-        `${game.home_team.fullName} ${game.score.homeTeam.totalScore} - ${game.score.awayTeam.totalScore} ${game.away_team.fullName} | ${game.status}`,
+        "   " + statusIcon + " " +
+        chalk.cyan(game.status.padEnd(12)) +
+        chalk.gray("│") + " " +
+        chalk.white(game.home_team.fullName.padEnd(20)) +
+        scoreColor(` ${homeScore} - ${awayScore} `) +
+        chalk.white(game.away_team.fullName)
       );
     }
   }
 
   async start() {
-    console.log("Starting cron service");
+    console.log("");
+    console.log(chalk.bold.green("═".repeat(80)));
+    console.log("");
+    console.log(
+      chalk.bold.green("  ⚽ LaLiga Match Tracker") +
+      chalk.gray(" │ ") +
+      chalk.white("Service Started")
+    );
+    console.log(chalk.gray(`  ${dayjs().format("dddd, MMMM D, YYYY - HH:mm:ss")}`));
+    console.log("");
+    console.log(chalk.bold.green("═".repeat(80)));
+    console.log("");
 
     const mainJob = await this.startWeekGamesJob();
 
-    for (const game of this.todayGames) {
-      this.printGameInfo(game);
+    if (this.todayGames.length === 0) {
+      console.log(chalk.yellow("   ℹ️  No games scheduled for today"));
+      console.log("");
+    } else {
+      console.log(chalk.bold.white(`📋 Today's Games (${this.todayGames.length})`));
+      console.log("");
 
-      if (game.status === this.IN_PROGRESS_STATUS) {
-        this.handleRealTimeGameJob(game);
+      for (const game of this.todayGames) {
+        this.printGameInfo(game);
+
+        if (game.status === this.IN_PROGRESS_STATUS) {
+          this.handleRealTimeGameJob(game);
+        }
       }
+      console.log("");
     }
 
     await mainJob.stop();
