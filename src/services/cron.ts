@@ -4,10 +4,12 @@ import dayjs from "../utils/dates";
 import { getNextGames, type GameEntrySupabase } from "../next-games";
 
 export class CronService {
-  private EVERY_MINUTE = "* * * * *";
-  private EVERY_DAY = "0 3 * * *";
+  private EVERY_MINUTE = "* * * * *" as const;
+  private EVERY_DAY = "0 3 * * *" as const;
 
   private FINISHED_STATUS = "Finalizado";
+  private PENDING_STATUS = "Pendiente";
+  private IN_PROGRESS_STATUS = "En juego";
 
   private supabase: SupabaseService;
 
@@ -73,9 +75,17 @@ export class CronService {
   }
 
   private handleRealTimeGameJob(game: GameEntrySupabase) {
+    console.log("");
+    console.log("====================");
+    console.log("");
+    console.log(
+      `Handling real-time game job for ${game.home_team.fullName} - ${game.away_team.fullName}`,
+    );
+
     const startTime = dayjs(game.date);
 
     const job = cron.schedule(this.EVERY_MINUTE, async () => {
+      console.log(`Checking game ${game.home_team.fullName} - ${game.away_team.fullName}`);
       const now = dayjs();
 
       if (now.isBefore(startTime)) {
@@ -102,6 +112,8 @@ export class CronService {
 
       if (statusUpdate) {
         console.log("game status updated: ", liveGame.status);
+      } else {
+        console.log('game status remain the same')
       }
 
       if (homeTeamScored) {
@@ -111,6 +123,12 @@ export class CronService {
       if (awayTeamScored) {
         console.log("away team scored");
       }
+
+      if (!homeTeamScored && !awayTeamScored) {
+        console.log("no goals scored");
+      }
+
+      console.log('----------------')
 
       await this.supabase.updateGame(liveGame);
 
@@ -124,17 +142,29 @@ export class CronService {
     return job;
   }
 
+  private printGameInfo(game: GameEntrySupabase) {
+    if (game.status === this.PENDING_STATUS) {
+      console.log(
+        `${game.home_team.fullName} - ${game.away_team.fullName} starts at ${dayjs(game.date).format("DD/MM/YYYY HH:mm")}`,
+      );
+    } else {
+      console.log(
+        `${game.home_team.fullName} ${game.score.homeTeam.totalScore} - ${game.score.awayTeam.totalScore} ${game.away_team.fullName} | ${game.status}`,
+      );
+    }
+  }
+
   async start() {
     console.log("Starting cron service");
 
     const mainJob = await this.startWeekGamesJob();
 
     for (const game of this.todayGames) {
-      console.log(
-        `Game ${game.code} starts at ${dayjs(game.date).format("DD/MM/YYYY HH:mm")}`,
-      );
+      this.printGameInfo(game);
 
-      this.handleRealTimeGameJob(game);
+      if (game.status === this.IN_PROGRESS_STATUS) {
+        this.handleRealTimeGameJob(game);
+      }
     }
 
     await mainJob.stop();

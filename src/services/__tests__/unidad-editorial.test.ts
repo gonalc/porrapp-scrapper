@@ -197,6 +197,19 @@ describe("UnidadEditorialService", () => {
 
         expect(result).toEqual([]);
       });
+
+      it("should return empty array when API returns 204 No Content", async () => {
+        fetchMock.mockImplementationOnce(() => Promise.resolve({
+          status: 204,
+          statusText: 'No Content',
+          json: () => Promise.reject(new Error('No content to parse'))
+        }));
+
+        const testDate = dayjs('2024-01-15');
+        const result = await UnidadEditorialService.getGames(testDate);
+
+        expect(result).toEqual([]);
+      });
     });
 
     describe("error handling", () => {
