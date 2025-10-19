@@ -1,6 +1,7 @@
 import cron from "node-cron";
 import chalk from "chalk";
 import { SupabaseService } from "./supabase";
+import { TelegramService } from "./telegram";
 import dayjs from "../utils/dates";
 import { getNextGames, type GameEntrySupabase } from "../next-games";
 
@@ -13,35 +14,44 @@ export class CronService {
   private IN_PROGRESS_STATUS = "En juego" as const;
 
   private supabase: SupabaseService;
+  private telegram: TelegramService;
 
   private todayGames: GameEntrySupabase[];
 
   constructor() {
     this.supabase = new SupabaseService();
+    this.telegram = new TelegramService();
     this.todayGames = [];
   }
 
   private async getWeekGames() {
-    const today = dayjs();
-    const topDate = today.add(8, "days");
+    try {
+      const today = dayjs();
+      const topDate = today.add(8, "days");
 
-    let date = today.subtract(1, "day");
+      let date = today.subtract(1, "day");
 
-    const todayGames: GameEntrySupabase[] = [];
+      const todayGames: GameEntrySupabase[] = [];
 
-    while (date.isSameOrBefore(topDate)) {
-      const nextGames = await getNextGames(date);
+      while (date.isSameOrBefore(topDate)) {
+        const nextGames = await getNextGames(date);
 
-      if (today.isSame(date, "day")) {
-        todayGames.push(...nextGames);
+        if (today.isSame(date, "day")) {
+          todayGames.push(...nextGames);
+        }
+
+        await this.supabase.insertGames(nextGames);
+
+        date = date.add(1, "day");
       }
 
-      await this.supabase.insertGames(nextGames);
-
-      date = date.add(1, "day");
+      return todayGames;
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      console.error(chalk.red(`❌ Failed to fetch week games: ${errorMessage}`));
+      await this.telegram.sendError(errorMessage, "getWeekGames");
+      return [];
     }
-
-    return todayGames;
   }
 
   private async startWeekGamesJob() {
@@ -90,109 +100,118 @@ export class CronService {
     const startTime = dayjs(game.date);
 
     const job = cron.schedule(this.EVERY_MINUTE, async () => {
-      const now = dayjs();
-      const timestamp = chalk.gray(`[${now.format("HH:mm:ss")}]`);
+      try {
+        const now = dayjs();
+        const timestamp = chalk.gray(`[${now.format("HH:mm:ss")}]`);
 
-      console.log(timestamp + " " + chalk.dim("Checking game status..."));
+        console.log(timestamp + " " + chalk.dim("Checking game status..."));
 
-      if (now.isBefore(startTime)) {
-        const minutesLeft = startTime.diff(now, "minutes");
+        if (now.isBefore(startTime)) {
+          const minutesLeft = startTime.diff(now, "minutes");
+          console.log(
+            timestamp + " " +
+            chalk.yellow("⏱️  Countdown") +
+            chalk.gray(" │ ") +
+            chalk.white(`${game.home_team.fullName} vs ${game.away_team.fullName}`) +
+            chalk.gray(" │ ") +
+            chalk.yellow(`Starts in ${minutesLeft} min`)
+          );
+          console.log("");
+          return;
+        }
+
+        const todayGames = await getNextGames(now);
+        const liveGame = todayGames.find((g) => g.code === game.code);
+
+        if (!liveGame) {
+          console.log(
+            timestamp + " " +
+            chalk.red("❌ Game Not Found") +
+            chalk.gray(" │ ") +
+            chalk.white(`${game.home_team.fullName} vs ${game.away_team.fullName}`)
+          );
+          console.log("");
+          return;
+        }
+
+        const currentGame = await this.supabase.getGameByCode(liveGame.code);
+
+        const { statusUpdate, homeTeamScored, awayTeamScored } =
+          this.getGameUpdates(currentGame, liveGame);
+
+        // Display game header
         console.log(
           timestamp + " " +
-          chalk.yellow("⏱️  Countdown") +
+          chalk.bold.white(`${liveGame.home_team.fullName}`) +
+          chalk.gray(" vs ") +
+          chalk.bold.white(`${liveGame.away_team.fullName}`) +
           chalk.gray(" │ ") +
-          chalk.white(`${game.home_team.fullName} vs ${game.away_team.fullName}`) +
-          chalk.gray(" │ ") +
-          chalk.yellow(`Starts in ${minutesLeft} min`)
+          chalk.cyan(`${liveGame.score.homeTeam.totalScore}-${liveGame.score.awayTeam.totalScore}`)
         );
+
+        // Status update
+        if (statusUpdate) {
+          const statusEmoji = liveGame.status === this.FINISHED_STATUS ? "🏁" :
+                             liveGame.status === this.IN_PROGRESS_STATUS ? "▶️" : "📋";
+          console.log(
+            "   " + statusEmoji + " " +
+            chalk.bold.magenta("Status Changed") +
+            chalk.gray(" → ") +
+            chalk.white(liveGame.status)
+          );
+        } else {
+          console.log(
+            "   " + chalk.dim("📊 Status: ") + chalk.gray(liveGame.status)
+          );
+        }
+
+        // Goal updates
+        if (homeTeamScored) {
+          console.log(
+            "   " + chalk.bold.green("⚽ GOAL!") +
+            chalk.gray(" │ ") +
+            chalk.white(liveGame.home_team.fullName) +
+            chalk.gray(" scored! ") +
+            chalk.green(`(${liveGame.score.homeTeam.totalScore})`)
+          );
+        }
+
+        if (awayTeamScored) {
+          console.log(
+            "   " + chalk.bold.green("⚽ GOAL!") +
+            chalk.gray(" │ ") +
+            chalk.white(liveGame.away_team.fullName) +
+            chalk.gray(" scored! ") +
+            chalk.green(`(${liveGame.score.awayTeam.totalScore})`)
+          );
+        }
+
+        if (!homeTeamScored && !awayTeamScored) {
+          console.log("   " + chalk.dim("💤 No goals scored"));
+        }
+
+        console.log(chalk.gray("   " + "─".repeat(76)));
         console.log("");
-        return;
-      }
 
-      const todayGames = await getNextGames(now);
-      const liveGame = todayGames.find((g) => g.code === game.code);
+        await this.supabase.updateGame(liveGame);
 
-      if (!liveGame) {
-        console.log(
-          timestamp + " " +
-          chalk.red("❌ Game Not Found") +
-          chalk.gray(" │ ") +
-          chalk.white(`${game.home_team.fullName} vs ${game.away_team.fullName}`)
+        if (liveGame.status === this.FINISHED_STATUS) {
+          console.log(
+            chalk.bold.green("🏁 GAME FINISHED") +
+            chalk.gray(" │ ") +
+            chalk.white(`Final Score: ${liveGame.score.homeTeam.totalScore}-${liveGame.score.awayTeam.totalScore}`)
+          );
+          console.log(chalk.cyan("═".repeat(80)));
+          console.log("");
+          job.stop();
+        }
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        console.error(chalk.red(`❌ Real-time tracker error: ${errorMessage}`));
+        await this.telegram.sendError(
+          errorMessage,
+          `Real-time tracker - ${game.home_team.fullName} vs ${game.away_team.fullName}`
         );
-        console.log("");
-        return;
-      }
-
-      const currentGame = await this.supabase.getGameByCode(liveGame.code);
-
-      const { statusUpdate, homeTeamScored, awayTeamScored } =
-        this.getGameUpdates(currentGame, liveGame);
-
-      // Display game header
-      console.log(
-        timestamp + " " +
-        chalk.bold.white(`${liveGame.home_team.fullName}`) +
-        chalk.gray(" vs ") +
-        chalk.bold.white(`${liveGame.away_team.fullName}`) +
-        chalk.gray(" │ ") +
-        chalk.cyan(`${liveGame.score.homeTeam.totalScore}-${liveGame.score.awayTeam.totalScore}`)
-      );
-
-      // Status update
-      if (statusUpdate) {
-        const statusEmoji = liveGame.status === this.FINISHED_STATUS ? "🏁" :
-                           liveGame.status === this.IN_PROGRESS_STATUS ? "▶️" : "📋";
-        console.log(
-          "   " + statusEmoji + " " +
-          chalk.bold.magenta("Status Changed") +
-          chalk.gray(" → ") +
-          chalk.white(liveGame.status)
-        );
-      } else {
-        console.log(
-          "   " + chalk.dim("📊 Status: ") + chalk.gray(liveGame.status)
-        );
-      }
-
-      // Goal updates
-      if (homeTeamScored) {
-        console.log(
-          "   " + chalk.bold.green("⚽ GOAL!") +
-          chalk.gray(" │ ") +
-          chalk.white(liveGame.home_team.fullName) +
-          chalk.gray(" scored! ") +
-          chalk.green(`(${liveGame.score.homeTeam.totalScore})`)
-        );
-      }
-
-      if (awayTeamScored) {
-        console.log(
-          "   " + chalk.bold.green("⚽ GOAL!") +
-          chalk.gray(" │ ") +
-          chalk.white(liveGame.away_team.fullName) +
-          chalk.gray(" scored! ") +
-          chalk.green(`(${liveGame.score.awayTeam.totalScore})`)
-        );
-      }
-
-      if (!homeTeamScored && !awayTeamScored) {
-        console.log("   " + chalk.dim("💤 No goals scored"));
-      }
-
-      console.log(chalk.gray("   " + "─".repeat(76)));
-      console.log("");
-
-      await this.supabase.updateGame(liveGame);
-
-      if (liveGame.status === this.FINISHED_STATUS) {
-        console.log(
-          chalk.bold.green("🏁 GAME FINISHED") +
-          chalk.gray(" │ ") +
-          chalk.white(`Final Score: ${liveGame.score.homeTeam.totalScore}-${liveGame.score.awayTeam.totalScore}`)
-        );
-        console.log(chalk.cyan("═".repeat(80)));
-        console.log("");
-        job.stop();
       }
     });
 

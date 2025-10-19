@@ -34,6 +34,23 @@ mock.module("../supabase", () => ({
   SupabaseService: MockSupabaseService
 }));
 
+// Mock TelegramService
+const mockTelegramMethods = {
+  sendStartup: mock(async () => {}),
+  sendShutdown: mock(async () => {}),
+  sendError: mock(async (_error: string, _context?: string) => {})
+};
+
+class MockTelegramService {
+  sendStartup = mockTelegramMethods.sendStartup;
+  sendShutdown = mockTelegramMethods.sendShutdown;
+  sendError = mockTelegramMethods.sendError;
+}
+
+mock.module("../telegram", () => ({
+  TelegramService: MockTelegramService
+}));
+
 const createMockDayjs = () => ({
   add: mock().mockReturnThis(),
   subtract: mock().mockReturnThis(),
@@ -115,6 +132,11 @@ describe("CronService", () => {
 
     mockSupabaseMethods.updateGame.mockClear();
     mockSupabaseMethods.updateGame.mockResolvedValue(undefined);
+
+    // Clear telegram mock methods
+    mockTelegramMethods.sendStartup.mockClear();
+    mockTelegramMethods.sendShutdown.mockClear();
+    mockTelegramMethods.sendError.mockClear();
 
     cronService = new CronService();
   });
@@ -221,7 +243,10 @@ describe("CronService", () => {
 
       mockDayjs.mockReturnValue(mockDateChain);
 
-      await expect(cronService['getWeekGames']()).rejects.toThrow("API Error");
+      const result = await cronService['getWeekGames']();
+
+      expect(result).toEqual([]);
+      expect(mockTelegramMethods.sendError).toHaveBeenCalledWith("API Error", "getWeekGames");
     });
 
     test("should handle database insertion failures", async () => {
@@ -242,7 +267,10 @@ describe("CronService", () => {
 
       mockDayjs.mockReturnValue(mockDateChain);
 
-      await expect(cronService['getWeekGames']()).rejects.toThrow("Database Error");
+      const result = await cronService['getWeekGames']();
+
+      expect(result).toEqual([]);
+      expect(mockTelegramMethods.sendError).toHaveBeenCalledWith("Database Error", "getWeekGames");
     });
   });
 
@@ -702,7 +730,8 @@ describe("CronService", () => {
       const liveGame = createMockGame({ code: "game-123" });
 
       const mockNow = {
-        isBefore: mock().mockReturnValue(false)
+        isBefore: mock().mockReturnValue(false),
+        format: mock().mockReturnValue("15:30:00")
       };
 
       mockDayjs.mockImplementation((date?: any) => {
@@ -715,7 +744,12 @@ describe("CronService", () => {
 
       cronService['handleRealTimeGameJob'](game);
 
-      expect(cronCallback!()).rejects.toThrow("Database Error");
+      await cronCallback!();
+
+      expect(mockTelegramMethods.sendError).toHaveBeenCalledWith(
+        "Database Error",
+        `Real-time tracker - ${game.home_team.fullName} vs ${game.away_team.fullName}`
+      );
     });
   });
 
@@ -931,7 +965,10 @@ describe("CronService", () => {
 
       mockDayjs.mockReturnValue(mockDateChain);
 
-      await expect(cronService['getWeekGames']()).rejects.toThrow("Network timeout");
+      const result = await cronService['getWeekGames']();
+
+      expect(result).toEqual([]);
+      expect(mockTelegramMethods.sendError).toHaveBeenCalledWith("Network timeout", "getWeekGames");
     });
 
     test("should handle concurrent access to todayGames", async () => {
