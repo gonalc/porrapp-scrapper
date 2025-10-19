@@ -8,9 +8,9 @@ export class CronService {
   private EVERY_MINUTE = "* * * * *" as const;
   private EVERY_DAY = "0 3 * * *" as const;
 
-  private FINISHED_STATUS = "Finalizado";
-  private PENDING_STATUS = "Pendiente";
-  private IN_PROGRESS_STATUS = "En juego";
+  private FINISHED_STATUS = "Finalizado" as const;
+  private PENDING_STATUS = "Pendiente" as const;
+  private IN_PROGRESS_STATUS = "En juego" as const;
 
   private supabase: SupabaseService;
 
@@ -140,7 +140,7 @@ export class CronService {
 
       // Status update
       if (statusUpdate) {
-        const statusEmoji = liveGame.status === this.FINISHED_STATUS ? "🏁" : 
+        const statusEmoji = liveGame.status === this.FINISHED_STATUS ? "🏁" :
                            liveGame.status === this.IN_PROGRESS_STATUS ? "▶️" : "📋";
         console.log(
           "   " + statusEmoji + " " +
@@ -202,7 +202,7 @@ export class CronService {
   }
 
   private printGameInfo(game: GameEntrySupabase) {
-    const statusIcon = 
+    const statusIcon =
       game.status === this.PENDING_STATUS ? "📅" :
       game.status === this.IN_PROGRESS_STATUS ? "🟢" :
       game.status === this.FINISHED_STATUS ? "✅" : "📋";
@@ -222,7 +222,7 @@ export class CronService {
       const homeScore = game.score.homeTeam.totalScore;
       const awayScore = game.score.awayTeam.totalScore;
       const scoreColor = game.status === this.FINISHED_STATUS ? chalk.bold.green : chalk.bold.cyan;
-      
+
       console.log(
         "   " + statusIcon + " " +
         chalk.cyan(game.status.padEnd(12)) +
