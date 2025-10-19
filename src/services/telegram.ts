@@ -10,7 +10,9 @@ export class TelegramService {
     this.botToken = process.env.TELEGRAM_BOT_TOKEN || "";
     this.chatId = process.env.TELEGRAM_CHAT_ID || "";
     this.baseUrl = `https://api.telegram.org/bot${this.botToken}`;
-    this.isTestEnvironment = process.env.NODE_ENV === "test" || typeof Bun !== "undefined" && Bun.jest !== undefined;
+    // Detect test environment - check for Bun test globals or NODE_ENV
+    this.isTestEnvironment = process.env.NODE_ENV === "test" || 
+                             (typeof Bun !== "undefined" && (Bun as any).jest !== undefined);
 
     if (!this.botToken || !this.chatId) {
       if (!this.isTestEnvironment) {
