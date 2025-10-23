@@ -547,12 +547,12 @@ describe("CronService", () => {
       expect(mockGetNextGames).toHaveBeenCalledTimes(1);
       expect(mockSupabaseMethods.getGameByCode).toHaveBeenCalledWith("game-123");
       // Check that status change was logged (looking for "Status Changed" in any call)
-      const statusChangeLogs = consoleSpy.log.mock.calls.filter(call => 
+      const statusChangeLogs = consoleSpy.log.mock.calls.filter(call =>
         call.some(arg => typeof arg === 'string' && arg.includes('Status Changed'))
       );
       expect(statusChangeLogs.length).toBeGreaterThan(0);
       // Check that goal was logged (looking for "GOAL" in any call)
-      const goalLogs = consoleSpy.log.mock.calls.filter(call => 
+      const goalLogs = consoleSpy.log.mock.calls.filter(call =>
         call.some(arg => typeof arg === 'string' && arg.includes('GOAL'))
       );
       expect(goalLogs.length).toBeGreaterThan(0);
@@ -582,7 +582,7 @@ describe("CronService", () => {
       await cronCallback!();
 
       // Check that "Game Not Found" was logged
-      const notFoundLogs = consoleSpy.log.mock.calls.filter(call => 
+      const notFoundLogs = consoleSpy.log.mock.calls.filter(call =>
         call.some(arg => typeof arg === 'string' && arg.includes('Game Not Found'))
       );
       expect(notFoundLogs.length).toBeGreaterThan(0);
@@ -657,7 +657,7 @@ describe("CronService", () => {
       await cronCallback!();
 
       // Check that goal was logged (looking for "GOAL" in any call)
-      const goalLogs = consoleSpy.log.mock.calls.filter(call => 
+      const goalLogs = consoleSpy.log.mock.calls.filter(call =>
         call.some(arg => typeof arg === 'string' && arg.includes('GOAL'))
       );
       expect(goalLogs.length).toBeGreaterThan(0);
@@ -699,23 +699,23 @@ describe("CronService", () => {
       await cronCallback!();
 
       // Check that status remained the same (looking for "Status:" in any call)
-      const statusLogs = consoleSpy.log.mock.calls.filter(call => 
+      const statusLogs = consoleSpy.log.mock.calls.filter(call =>
         call.some(arg => typeof arg === 'string' && arg.includes('Status:'))
       );
       expect(statusLogs.length).toBeGreaterThan(0);
-      
+
       // Check that "No goals scored" was logged
-      const noGoalsLogs = consoleSpy.log.mock.calls.filter(call => 
+      const noGoalsLogs = consoleSpy.log.mock.calls.filter(call =>
         call.some(arg => typeof arg === 'string' && arg.includes('No goals scored'))
       );
       expect(noGoalsLogs.length).toBeGreaterThan(0);
-      
+
       // Ensure GOAL was not logged
-      const goalLogs = consoleSpy.log.mock.calls.filter(call => 
+      const goalLogs = consoleSpy.log.mock.calls.filter(call =>
         call.some(arg => typeof arg === 'string' && arg.includes('GOAL'))
       );
       expect(goalLogs.length).toBe(0);
-      
+
       expect(mockSupabaseMethods.updateGame).toHaveBeenCalledWith(liveGame);
     });
 
@@ -770,7 +770,7 @@ describe("CronService", () => {
       await cronService.start();
 
       // Check that service started (looking for "Service Started" or "Match Tracker" in any call)
-      const startLogs = consoleSpy.log.mock.calls.filter(call => 
+      const startLogs = consoleSpy.log.mock.calls.filter(call =>
         call.some(arg => typeof arg === 'string' && (arg.includes('Service Started') || arg.includes('Match Tracker')))
       );
       expect(startLogs.length).toBeGreaterThan(0);
@@ -778,7 +778,6 @@ describe("CronService", () => {
       expect(mockHandleRealTimeGameJob).toHaveBeenCalledTimes(2);
       expect(mockHandleRealTimeGameJob).toHaveBeenCalledWith(todayGames[0]);
       expect(mockHandleRealTimeGameJob).toHaveBeenCalledWith(todayGames[1]);
-      expect(mockJob.stop).toHaveBeenCalled();
     });
 
     test("should handle empty todayGames array", async () => {
@@ -790,13 +789,12 @@ describe("CronService", () => {
       await cronService.start();
 
       // Check that service started
-      const startLogs = consoleSpy.log.mock.calls.filter(call => 
+      const startLogs = consoleSpy.log.mock.calls.filter(call =>
         call.some(arg => typeof arg === 'string' && (arg.includes('Service Started') || arg.includes('Match Tracker')))
       );
       expect(startLogs.length).toBeGreaterThan(0);
       expect(mockStartWeekGamesJob).toHaveBeenCalled();
       expect(mockHandleRealTimeGameJob).not.toHaveBeenCalled();
-      expect(mockJob.stop).toHaveBeenCalled();
     });
 
     test("should NOT create real-time jobs for games that are not in progress", async () => {
@@ -814,7 +812,7 @@ describe("CronService", () => {
       await cronService.start();
 
       // Check that service started
-      const startLogs = consoleSpy.log.mock.calls.filter(call => 
+      const startLogs = consoleSpy.log.mock.calls.filter(call =>
         call.some(arg => typeof arg === 'string' && (arg.includes('Service Started') || arg.includes('Match Tracker')))
       );
       expect(startLogs.length).toBeGreaterThan(0);
@@ -822,7 +820,6 @@ describe("CronService", () => {
       // Only one game is in progress, so only one real-time job should be created
       expect(mockHandleRealTimeGameJob).toHaveBeenCalledTimes(1);
       expect(mockHandleRealTimeGameJob).toHaveBeenCalledWith(todayGames[2]);
-      expect(mockJob.stop).toHaveBeenCalled();
     });
 
     test("should handle startWeekGamesJob errors", async () => {
@@ -830,7 +827,7 @@ describe("CronService", () => {
 
       await expect(cronService.start()).rejects.toThrow("Job Error");
       // Check that service started before error
-      const startLogs = consoleSpy.log.mock.calls.filter(call => 
+      const startLogs = consoleSpy.log.mock.calls.filter(call =>
         call.some(arg => typeof arg === 'string' && (arg.includes('Service Started') || arg.includes('Match Tracker')))
       );
       expect(startLogs.length).toBeGreaterThan(0);
@@ -902,7 +899,7 @@ describe("CronService", () => {
       // Real-time jobs are created based on today's games, which may be 0 in this mock setup
       expect(mockJob.start).toHaveBeenCalled();
       // Check that service started
-      const startLogs = consoleSpy.log.mock.calls.filter(call => 
+      const startLogs = consoleSpy.log.mock.calls.filter(call =>
         call.some(arg => typeof arg === 'string' && (arg.includes('Service Started') || arg.includes('Match Tracker')))
       );
       expect(startLogs.length).toBeGreaterThan(0);
