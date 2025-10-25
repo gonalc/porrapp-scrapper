@@ -747,7 +747,6 @@ describe("CronService", () => {
 
   describe("start", () => {
     test("should handle empty todayGames array", async () => {
-      cronService['todayGames'] = [];
 
       const mockStartWeekGamesJob = spyOn(cronService as any, 'startWeekGamesJob').mockResolvedValue(mockJob);
       const mockHandleRealTimeGameJob = spyOn(cronService as any, 'handleRealTimeGameJob');
@@ -775,15 +774,6 @@ describe("CronService", () => {
     });
 
     test("should format game start times correctly", async () => {
-      const game = createMockGame({
-        code: "formatted-game",
-        date: new Date("2024-03-20T14:30:00Z"),
-        home_team: { fullName: "Real Madrid" },
-        away_team: { fullName: "Barcelona" }
-      });
-
-      cronService['todayGames'] = [game];
-
       const mockDateInstance = {
         format: mock().mockReturnValue("20/03/2024 14:30")
       };
@@ -890,20 +880,6 @@ describe("CronService", () => {
 
       expect(result).toEqual([]);
       expect(mockTelegramMethods.sendError).toHaveBeenCalledWith("Network timeout", "getWeekGames");
-    });
-
-    test("should handle concurrent access to todayGames", async () => {
-      const games1 = [createMockGame({ code: "concurrent-1" })];
-      const games2 = [createMockGame({ code: "concurrent-2" })];
-
-      // Simulate concurrent modification
-      cronService['todayGames'] = games1;
-
-      expect(cronService['todayGames']).toEqual(games1);
-
-      cronService['todayGames'] = games2;
-
-      expect(cronService['todayGames']).toEqual(games2);
     });
   });
 });
