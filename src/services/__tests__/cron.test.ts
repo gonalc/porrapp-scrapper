@@ -797,13 +797,13 @@ describe("CronService", () => {
         return mockJob;
       });
 
-      cronService['handleRealTimeGameJob'] = mockHandleRealTimeGameJobMethod;
+      (cronService as any)['handleRealTimeGameJob'] = mockHandleRealTimeGameJobMethod;
 
       await cronService.start();
 
       // handleRealTimeGameJob should only be called for the "En juego" game
       expect(handleRealTimeGameJobCalls.length).toBe(1);
-      expect(handleRealTimeGameJobCalls[0]).toEqual(todayGames[0]);
+      expect(handleRealTimeGameJobCalls[0]!).toEqual(todayGames[0]!);
     });
 
     test("should call handleRealTimeGameJob for all games with 'En juego' status", async () => {
@@ -838,14 +838,14 @@ describe("CronService", () => {
         return mockJob;
       });
 
-      cronService['handleRealTimeGameJob'] = mockHandleRealTimeGameJobMethod;
+      (cronService as any)['handleRealTimeGameJob'] = mockHandleRealTimeGameJobMethod;
 
       await cronService.start();
 
       // handleRealTimeGameJob should be called for both "En juego" games
       expect(handleRealTimeGameJobCalls.length).toBe(2);
-      expect(handleRealTimeGameJobCalls[0]).toEqual(todayGames[0]);
-      expect(handleRealTimeGameJobCalls[1]).toEqual(todayGames[1]);
+      expect(handleRealTimeGameJobCalls[0]!).toEqual(todayGames[0]!);
+      expect(handleRealTimeGameJobCalls[1]!).toEqual(todayGames[1]!);
     });
 
     test("should not call handleRealTimeGameJob when all games are scheduled", async () => {
