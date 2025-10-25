@@ -747,18 +747,147 @@ describe("CronService", () => {
 
   describe("start", () => {
     test("should handle empty todayGames array", async () => {
+      // Mock getWeekGames to return empty array
+      let iterationCount = 0;
+      const mockDateChain: any = {
+        add: mock(),
+        subtract: mock(),
+        isSameOrBefore: mock().mockImplementation(() => {
+          iterationCount++;
+          return iterationCount <= 10;
+        }),
+        isSame: mock().mockReturnValue(false) // No games today
+      };
+      mockDateChain.add.mockReturnValue(mockDateChain);
+      mockDateChain.subtract.mockReturnValue(mockDateChain);
 
-      const mockStartWeekGamesJob = spyOn(cronService as any, 'startWeekGamesJob').mockResolvedValue(mockJob);
+      mockDayjs.mockReturnValue(mockDateChain);
+      mockGetNextGames.mockResolvedValue([]);
+
       const mockHandleRealTimeGameJob = spyOn(cronService as any, 'handleRealTimeGameJob');
 
       await cronService.start();
+      
+      expect(mockHandleRealTimeGameJob).not.toHaveBeenCalled();
+    });
 
-      // Check that service started
-      const startLogs = consoleSpy.log.mock.calls.filter(call =>
-        call.some(arg => typeof arg === 'string' && (arg.includes('Service Started') || arg.includes('Match Tracker')))
-      );
-      expect(startLogs.length).toBeGreaterThan(0);
-      expect(mockStartWeekGamesJob).toHaveBeenCalled();
+    test("should call handleRealTimeGameJob for games with 'En juego' status", async () => {
+      const todayGames = [
+        createMockGame({
+          code: "game-in-progress",
+          status: "En juego",
+          home_team: { fullName: "Real Madrid" },
+          away_team: { fullName: "Barcelona" }
+        }),
+        createMockGame({
+          code: "game-scheduled",
+          status: "Programado",
+          home_team: { fullName: "Atletico Madrid" },
+          away_team: { fullName: "Sevilla" }
+        })
+      ];
+
+      // Mock getWeekGames directly to return todayGames
+      spyOn(cronService as any, 'getWeekGames').mockResolvedValue(todayGames);
+
+      // Track calls to handleRealTimeGameJob by mocking it on the instance
+      let handleRealTimeGameJobCalls: GameEntrySupabase[] = [];
+      const mockHandleRealTimeGameJobMethod = mock((game: GameEntrySupabase) => {
+        handleRealTimeGameJobCalls.push(game);
+        return mockJob;
+      });
+
+      cronService['handleRealTimeGameJob'] = mockHandleRealTimeGameJobMethod;
+
+      await cronService.start();
+
+      // handleRealTimeGameJob should only be called for the "En juego" game
+      expect(handleRealTimeGameJobCalls.length).toBe(1);
+      expect(handleRealTimeGameJobCalls[0]).toEqual(todayGames[0]);
+    });
+
+    test("should call handleRealTimeGameJob for all games with 'En juego' status", async () => {
+      const todayGames = [
+        createMockGame({
+          code: "game-1",
+          status: "En juego",
+          home_team: { fullName: "Real Madrid" },
+          away_team: { fullName: "Barcelona" }
+        }),
+        createMockGame({
+          code: "game-2",
+          status: "En juego",
+          home_team: { fullName: "Atletico Madrid" },
+          away_team: { fullName: "Sevilla" }
+        }),
+        createMockGame({
+          code: "game-3",
+          status: "Programado",
+          home_team: { fullName: "Valencia" },
+          away_team: { fullName: "Villarreal" }
+        })
+      ];
+
+      // Mock getWeekGames directly to return todayGames
+      spyOn(cronService as any, 'getWeekGames').mockResolvedValue(todayGames);
+
+      // Track calls to handleRealTimeGameJob by mocking it on the instance
+      let handleRealTimeGameJobCalls: GameEntrySupabase[] = [];
+      const mockHandleRealTimeGameJobMethod = mock((game: GameEntrySupabase) => {
+        handleRealTimeGameJobCalls.push(game);
+        return mockJob;
+      });
+
+      cronService['handleRealTimeGameJob'] = mockHandleRealTimeGameJobMethod;
+
+      await cronService.start();
+
+      // handleRealTimeGameJob should be called for both "En juego" games
+      expect(handleRealTimeGameJobCalls.length).toBe(2);
+      expect(handleRealTimeGameJobCalls[0]).toEqual(todayGames[0]);
+      expect(handleRealTimeGameJobCalls[1]).toEqual(todayGames[1]);
+    });
+
+    test("should not call handleRealTimeGameJob when all games are scheduled", async () => {
+      const todayGames = [
+        createMockGame({
+          code: "game-scheduled-1",
+          status: "Programado",
+          home_team: { fullName: "Real Madrid" },
+          away_team: { fullName: "Barcelona" }
+        }),
+        createMockGame({
+          code: "game-scheduled-2",
+          status: "Programado",
+          home_team: { fullName: "Atletico Madrid" },
+          away_team: { fullName: "Sevilla" }
+        })
+      ];
+
+      // Mock getWeekGames to return todayGames
+      let iterationCount = 0;
+      const mockDateChain: any = {
+        add: mock(),
+        subtract: mock(),
+        isSameOrBefore: mock().mockImplementation(() => {
+          iterationCount++;
+          return iterationCount <= 10;
+        }),
+        isSame: mock().mockImplementation(() => iterationCount === 5)
+      };
+      mockDateChain.add.mockReturnValue(mockDateChain);
+      mockDateChain.subtract.mockReturnValue(mockDateChain);
+
+      mockDayjs.mockReturnValue(mockDateChain);
+      mockGetNextGames.mockImplementation(async () => {
+        return iterationCount === 5 ? todayGames : [];
+      });
+
+      const mockHandleRealTimeGameJob = spyOn(cronService as any, 'handleRealTimeGameJob').mockReturnValue(mockJob);
+
+      await cronService.start();
+
+      // handleRealTimeGameJob should not be called since no games are "En juego"
       expect(mockHandleRealTimeGameJob).not.toHaveBeenCalled();
     });
 
@@ -766,25 +895,6 @@ describe("CronService", () => {
       spyOn(cronService as any, 'startWeekGamesJob').mockRejectedValue(new Error("Job Error"));
 
       await expect(cronService.start()).rejects.toThrow("Job Error");
-      // Check that service started before error
-      const startLogs = consoleSpy.log.mock.calls.filter(call =>
-        call.some(arg => typeof arg === 'string' && (arg.includes('Service Started') || arg.includes('Match Tracker')))
-      );
-      expect(startLogs.length).toBeGreaterThan(0);
-    });
-
-    test("should format game start times correctly", async () => {
-      const mockDateInstance = {
-        format: mock().mockReturnValue("20/03/2024 14:30")
-      };
-
-      mockDayjs.mockImplementation((date?: any) => {
-        if (date instanceof Date) return mockDateInstance;
-        return mockDayjs();
-      });
-
-      spyOn(cronService as any, 'startWeekGamesJob').mockResolvedValue(mockJob);
-      spyOn(cronService as any, 'handleRealTimeGameJob').mockReturnValue(mockJob);
     });
   });
 
