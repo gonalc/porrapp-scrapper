@@ -16,13 +16,10 @@ export class CronService {
   private telegram: TelegramService;
   private printer: PrinterService;
 
-  private todayGames: GameEntrySupabase[];
-
   constructor() {
     this.supabase = new SupabaseService();
     this.telegram = new TelegramService();
     this.printer = PrinterService.getInstance();
-    this.todayGames = [];
   }
 
   private async getWeekGames() {
@@ -48,7 +45,8 @@ export class CronService {
 
       return todayGames;
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
       this.printer.fetchError(errorMessage);
       await this.telegram.sendError(errorMessage, "getWeekGames");
       return [];
@@ -64,7 +62,7 @@ export class CronService {
 
     const todayGames = await this.getWeekGames();
 
-    this.todayGames = todayGames;
+    this.handleRealTimeGames(todayGames);
 
     return job;
   }
@@ -99,7 +97,11 @@ export class CronService {
 
         if (now.isBefore(startTime)) {
           const minutesLeft = startTime.diff(now, "minutes");
-          this.printer.countdown(game.home_team.fullName, game.away_team.fullName, minutesLeft);
+          this.printer.countdown(
+            game.home_team.fullName,
+            game.away_team.fullName,
+            minutesLeft,
+          );
           return;
         }
 
@@ -107,7 +109,10 @@ export class CronService {
         const liveGame = todayGames.find((g) => g.code === game.code);
 
         if (!liveGame) {
-          this.printer.gameNotFound(game.home_team.fullName, game.away_team.fullName);
+          this.printer.gameNotFound(
+            game.home_team.fullName,
+            game.away_team.fullName,
+          );
           return;
         }
 
@@ -120,7 +125,7 @@ export class CronService {
           liveGame.home_team.fullName,
           liveGame.away_team.fullName,
           Number(liveGame.score.homeTeam.totalScore),
-          Number(liveGame.score.awayTeam.totalScore)
+          Number(liveGame.score.awayTeam.totalScore),
         );
 
         if (statusUpdate) {
@@ -130,11 +135,17 @@ export class CronService {
         }
 
         if (homeTeamScored) {
-          this.printer.goal(liveGame.home_team.fullName, Number(liveGame.score.homeTeam.totalScore));
+          this.printer.goal(
+            liveGame.home_team.fullName,
+            Number(liveGame.score.homeTeam.totalScore),
+          );
         }
 
         if (awayTeamScored) {
-          this.printer.goal(liveGame.away_team.fullName, Number(liveGame.score.awayTeam.totalScore));
+          this.printer.goal(
+            liveGame.away_team.fullName,
+            Number(liveGame.score.awayTeam.totalScore),
+          );
         }
 
         if (!homeTeamScored && !awayTeamScored) {
@@ -148,16 +159,17 @@ export class CronService {
         if (liveGame.status === this.FINISHED_STATUS) {
           this.printer.gameFinished(
             Number(liveGame.score.homeTeam.totalScore),
-            Number(liveGame.score.awayTeam.totalScore)
+            Number(liveGame.score.awayTeam.totalScore),
           );
           job.stop();
         }
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : String(error);
+        const errorMessage =
+          error instanceof Error ? error.message : String(error);
         this.printer.trackerError(errorMessage);
         await this.telegram.sendError(
           errorMessage,
-          `Real-time tracker - ${game.home_team.fullName} vs ${game.away_team.fullName}`
+          `Real-time tracker - ${game.home_team.fullName} vs ${game.away_team.fullName}`,
         );
       }
     });
@@ -167,22 +179,14 @@ export class CronService {
     return job;
   }
 
-  private printGameInfo(game: GameEntrySupabase) {
-    this.printer.gameInfo(game);
-  }
-
-  async start() {
-    this.printer.serviceStart();
-
-    await this.startWeekGamesJob();
-
-    if (this.todayGames.length === 0) {
+  private async handleRealTimeGames(games: GameEntrySupabase[]) {
+    if (games.length === 0) {
       this.printer.noGamesToday();
     } else {
-      this.printer.todaysGamesHeader(this.todayGames.length);
+      this.printer.todaysGamesHeader(games.length);
 
-      for (const game of this.todayGames) {
-        this.printGameInfo(game);
+      for (const game of games) {
+        this.printer.gameInfo(game);
 
         if (game.status === this.IN_PROGRESS_STATUS) {
           this.handleRealTimeGameJob(game);
@@ -190,5 +194,11 @@ export class CronService {
       }
       this.printer.newLine();
     }
+  }
+
+  async start() {
+    this.printer.serviceStart();
+
+    await this.startWeekGamesJob();
   }
 }
