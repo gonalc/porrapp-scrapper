@@ -94,7 +94,7 @@ describe("UnidadEditorialService", () => {
 
   describe("getGames", () => {
     describe("successful API calls", () => {
-      it("should fetch games for LaLiga tournament by default", async () => {
+      it("should fetch games for both LaLiga and Champions League tournaments", async () => {
         const testDate = dayjs('2024-01-15');
         const result = await UnidadEditorialService.getGames(testDate);
 
@@ -107,34 +107,10 @@ describe("UnidadEditorialService", () => {
         expect(url.origin).toBe('https://api.unidadeditorial.es');
         expect(url.pathname).toBe('/sports/v1/events');
         expect(url.searchParams.get('site')).toBe('2');
-        expect(url.searchParams.get('tournament')).toBe('0101');
+        expect(url.searchParams.get('tournament')).toBe('0101,0103');
         expect(url.searchParams.get('fields')).toBe('sportEvent,score,tournament');
         expect(url.searchParams.get('timezoneOffset')).toBe('2');
         expect(url.searchParams.get('date')).toBe('2024-01-15');
-      });
-
-      it("should fetch games for LaLiga when explicitly specified", async () => {
-        const testDate = dayjs('2024-01-15');
-        const result = await UnidadEditorialService.getGames(testDate, '0101' as any);
-
-        expect(fetchMock).toHaveBeenCalledTimes(1);
-        expect(result).toEqual(mockMatchData);
-
-        const calledUrl = fetchMock.mock.calls[0][0];
-        const url = new URL(calledUrl);
-        expect(url.searchParams.get('tournament')).toBe('0101');
-      });
-
-      it("should fetch games for Champions League tournament", async () => {
-        const testDate = dayjs('2024-01-15');
-        const result = await UnidadEditorialService.getGames(testDate, '0103' as any);
-
-        expect(fetchMock).toHaveBeenCalledTimes(1);
-        expect(result).toEqual(mockMatchData);
-
-        const calledUrl = fetchMock.mock.calls[0][0];
-        const url = new URL(calledUrl);
-        expect(url.searchParams.get('tournament')).toBe('0103');
       });
 
       it("should format date correctly using UNIDAD_EDITORIAL_FORMAT", async () => {
@@ -172,7 +148,7 @@ describe("UnidadEditorialService", () => {
         const url = new URL(calledUrl);
 
         expect(url.searchParams.get('site')).toBe('2');
-        expect(url.searchParams.get('tournament')).toBe('0101');
+        expect(url.searchParams.get('tournament')).toBe('0101,0103');
         expect(url.searchParams.get('fields')).toBe('sportEvent,score,tournament');
         expect(url.searchParams.get('timezoneOffset')).toBe('2');
         expect(url.searchParams.get('date')).toBe('2024-01-15');
@@ -382,33 +358,6 @@ describe("UnidadEditorialService", () => {
         const urls = fetchMock.mock.calls.map((call: any) => call[0]);
         expect(urls[0]).toBe(urls[1]);
         expect(urls[1]).toBe(urls[2]);
-      });
-    });
-
-    describe("tournament parameter validation", () => {
-      it("should handle both tournament enum values correctly", async () => {
-        const testDate = dayjs('2024-01-15');
-
-        await UnidadEditorialService.getGames(testDate, '0101' as any);
-        let calledUrl = fetchMock.mock.calls[0][0];
-        let url = new URL(calledUrl);
-        expect(url.searchParams.get('tournament')).toBe('0101');
-
-        fetchMock.mockClear();
-
-        await UnidadEditorialService.getGames(testDate, '0103' as any);
-        calledUrl = fetchMock.mock.calls[0][0];
-        url = new URL(calledUrl);
-        expect(url.searchParams.get('tournament')).toBe('0103');
-      });
-
-      it("should use LaLiga as default tournament when not specified", async () => {
-        const testDate = dayjs('2024-01-15');
-        await UnidadEditorialService.getGames(testDate);
-
-        const calledUrl = fetchMock.mock.calls[0][0];
-        const url = new URL(calledUrl);
-        expect(url.searchParams.get('tournament')).toBe('0101');
       });
     });
 

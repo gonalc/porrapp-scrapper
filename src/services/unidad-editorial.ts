@@ -184,11 +184,11 @@ export class UnidadEditorialService {
   private static baseUrl = "https://api.unidadeditorial.es";
   private static NO_CONTENT_STATUS = 204;
 
-  static async getGames(date: Dayjs, tournament: Tournaments = Tournaments.LaLiga) {
+  static async getGames(date: Dayjs) {
     try {
       const url = new URL("/sports/v1/events", this.baseUrl);
       url.searchParams.set("site", "2");
-      url.searchParams.set("tournament", tournament);
+      url.searchParams.set("tournament", [Tournaments.LaLiga, Tournaments.ChampionsLeague].join(','));
       // url.searchParams.set('fields', 'sport,tournament,sportEvent,score,tv,editorialInfo');
       url.searchParams.set("fields", "sportEvent,score,tournament");
       url.searchParams.set("timezoneOffset", "2");
