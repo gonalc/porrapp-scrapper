@@ -188,7 +188,7 @@ export class CronService {
       for (const game of games) {
         this.printer.gameInfo(game);
 
-        if (game.status === this.IN_PROGRESS_STATUS) {
+        if (dayjs(game.datetime).isToday()) {
           this.handleRealTimeGameJob(game);
         }
       }

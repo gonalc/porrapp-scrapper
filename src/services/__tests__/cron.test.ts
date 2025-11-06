@@ -771,17 +771,19 @@ describe("CronService", () => {
       expect(mockHandleRealTimeGameJob).not.toHaveBeenCalled();
     });
 
-    test("should call handleRealTimeGameJob for games with 'En juego' status", async () => {
+    test("should call handleRealTimeGameJob for all today's games regardless of status", async () => {
       const todayGames = [
         createMockGame({
           code: "game-in-progress",
           status: "En juego",
+          datetime: new Date(),
           home_team: { fullName: "Real Madrid" },
           away_team: { fullName: "Barcelona" }
         }),
         createMockGame({
           code: "game-scheduled",
           status: "Programado",
+          datetime: new Date(),
           home_team: { fullName: "Atletico Madrid" },
           away_team: { fullName: "Sevilla" }
         })
@@ -789,6 +791,15 @@ describe("CronService", () => {
 
       // Mock getWeekGames directly to return todayGames
       spyOn(cronService as any, 'getWeekGames').mockResolvedValue(todayGames);
+
+      // Mock dayjs to make isToday() return true
+      const mockDateInstance = {
+        isToday: mock().mockReturnValue(true)
+      };
+      mockDayjs.mockImplementation((date?: any) => {
+        if (date) return mockDateInstance;
+        return createMockDayjs();
+      });
 
       // Track calls to handleRealTimeGameJob by mocking it on the instance
       let handleRealTimeGameJobCalls: GameEntrySupabase[] = [];
@@ -801,28 +812,32 @@ describe("CronService", () => {
 
       await cronService.start();
 
-      // handleRealTimeGameJob should only be called for the "En juego" game
-      expect(handleRealTimeGameJobCalls.length).toBe(1);
+      // handleRealTimeGameJob should be called for all today's games
+      expect(handleRealTimeGameJobCalls.length).toBe(2);
       expect(handleRealTimeGameJobCalls[0]!).toEqual(todayGames[0]!);
+      expect(handleRealTimeGameJobCalls[1]!).toEqual(todayGames[1]!);
     });
 
-    test("should call handleRealTimeGameJob for all games with 'En juego' status", async () => {
+    test("should call handleRealTimeGameJob for multiple today's games", async () => {
       const todayGames = [
         createMockGame({
           code: "game-1",
           status: "En juego",
+          datetime: new Date(),
           home_team: { fullName: "Real Madrid" },
           away_team: { fullName: "Barcelona" }
         }),
         createMockGame({
           code: "game-2",
-          status: "En juego",
+          status: "Programado",
+          datetime: new Date(),
           home_team: { fullName: "Atletico Madrid" },
           away_team: { fullName: "Sevilla" }
         }),
         createMockGame({
           code: "game-3",
           status: "Programado",
+          datetime: new Date(),
           home_team: { fullName: "Valencia" },
           away_team: { fullName: "Villarreal" }
         })
@@ -831,6 +846,15 @@ describe("CronService", () => {
       // Mock getWeekGames directly to return todayGames
       spyOn(cronService as any, 'getWeekGames').mockResolvedValue(todayGames);
 
+      // Mock dayjs to make isToday() return true
+      const mockDateInstance = {
+        isToday: mock().mockReturnValue(true)
+      };
+      mockDayjs.mockImplementation((date?: any) => {
+        if (date) return mockDateInstance;
+        return createMockDayjs();
+      });
+
       // Track calls to handleRealTimeGameJob by mocking it on the instance
       let handleRealTimeGameJobCalls: GameEntrySupabase[] = [];
       const mockHandleRealTimeGameJobMethod = mock((game: GameEntrySupabase) => {
@@ -842,29 +866,32 @@ describe("CronService", () => {
 
       await cronService.start();
 
-      // handleRealTimeGameJob should be called for both "En juego" games
-      expect(handleRealTimeGameJobCalls.length).toBe(2);
+      // handleRealTimeGameJob should be called for all today's games
+      expect(handleRealTimeGameJobCalls.length).toBe(3);
       expect(handleRealTimeGameJobCalls[0]!).toEqual(todayGames[0]!);
       expect(handleRealTimeGameJobCalls[1]!).toEqual(todayGames[1]!);
+      expect(handleRealTimeGameJobCalls[2]!).toEqual(todayGames[2]!);
     });
 
-    test("should not call handleRealTimeGameJob when all games are scheduled", async () => {
+    test("should not call handleRealTimeGameJob for games that are not today", async () => {
       const todayGames = [
         createMockGame({
-          code: "game-scheduled-1",
+          code: "game-tomorrow",
           status: "Programado",
+          datetime: new Date(Date.now() + 86400000), // tomorrow
           home_team: { fullName: "Real Madrid" },
           away_team: { fullName: "Barcelona" }
         }),
         createMockGame({
-          code: "game-scheduled-2",
-          status: "Programado",
+          code: "game-yesterday",
+          status: "Finalizado",
+          datetime: new Date(Date.now() - 86400000), // yesterday
           home_team: { fullName: "Atletico Madrid" },
           away_team: { fullName: "Sevilla" }
         })
       ];
 
-      // Mock getWeekGames to return todayGames
+      // Mock getWeekGames to return todayGames (even though they're not today)
       let iterationCount = 0;
       const mockDateChain: any = {
         add: mock(),
@@ -878,7 +905,16 @@ describe("CronService", () => {
       mockDateChain.add.mockReturnValue(mockDateChain);
       mockDateChain.subtract.mockReturnValue(mockDateChain);
 
-      mockDayjs.mockReturnValue(mockDateChain);
+      // Mock isToday to return false for these games
+      const mockDateInstance = {
+        isToday: mock().mockReturnValue(false)
+      };
+
+      mockDayjs.mockImplementation((date?: any) => {
+        if (date) return mockDateInstance;
+        return mockDateChain;
+      });
+      
       mockGetNextGames.mockImplementation(async () => {
         return iterationCount === 5 ? todayGames : [];
       });
@@ -887,7 +923,7 @@ describe("CronService", () => {
 
       await cronService.start();
 
-      // handleRealTimeGameJob should not be called since no games are "En juego"
+      // handleRealTimeGameJob should not be called since games are not today
       expect(mockHandleRealTimeGameJob).not.toHaveBeenCalled();
     });
 
