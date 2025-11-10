@@ -55,14 +55,12 @@ export class CronService {
 
   private async startWeekGamesJob() {
     const job = cron.schedule(this.EVERY_DAY, async () => {
-      await this.getWeekGames();
+      const todayGames = await this.getWeekGames();
+
+      this.handleRealTimeGames(todayGames);
     });
 
     job.start();
-
-    const todayGames = await this.getWeekGames();
-
-    this.handleRealTimeGames(todayGames);
 
     return job;
   }

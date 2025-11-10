@@ -15,6 +15,62 @@ mock.module("node-cron", () => ({
   default: mockCron
 }));
 
+// Mock PrinterService
+const mockPrinterMethods = {
+  serviceStart: mock(() => {}),
+  fetchError: mock((_error: string) => {}),
+  trackerStart: mock((_home: string, _away: string) => {}),
+  debug: mock((_message: string) => {}),
+  countdown: mock((_home: string, _away: string, _minutes: number) => {}),
+  gameNotFound: mock((_home: string, _away: string) => {}),
+  gameHeader: mock((_home: string, _away: string, _homeScore: number, _awayScore: number) => {}),
+  statusChanged: mock((_status: string) => {}),
+  statusCurrent: mock((_status: string) => {}),
+  goal: mock((_team: string, _score: number) => {}),
+  noGoals: mock(() => {}),
+  gameDivider: mock(() => {}),
+  gameFinished: mock((_homeScore: number, _awayScore: number) => {}),
+  trackerError: mock((_error: string) => {}),
+  noGamesToday: mock(() => {}),
+  todaysGamesHeader: mock((_count: number) => {}),
+  gameInfo: mock((_game: GameEntrySupabase) => {}),
+  newLine: mock(() => {})
+};
+
+class MockPrinterService {
+  static instance: MockPrinterService;
+
+  static getInstance() {
+    if (!MockPrinterService.instance) {
+      MockPrinterService.instance = new MockPrinterService();
+    }
+    return MockPrinterService.instance;
+  }
+
+  serviceStart = mockPrinterMethods.serviceStart;
+  fetchError = mockPrinterMethods.fetchError;
+  trackerStart = mockPrinterMethods.trackerStart;
+  debug = mockPrinterMethods.debug;
+  countdown = mockPrinterMethods.countdown;
+  gameNotFound = mockPrinterMethods.gameNotFound;
+  gameHeader = mockPrinterMethods.gameHeader;
+  statusChanged = mockPrinterMethods.statusChanged;
+  statusCurrent = mockPrinterMethods.statusCurrent;
+  goal = mockPrinterMethods.goal;
+  noGoals = mockPrinterMethods.noGoals;
+  gameDivider = mockPrinterMethods.gameDivider;
+  gameFinished = mockPrinterMethods.gameFinished;
+  trackerError = mockPrinterMethods.trackerError;
+  noGamesToday = mockPrinterMethods.noGamesToday;
+  todaysGamesHeader = mockPrinterMethods.todaysGamesHeader;
+  gameInfo = mockPrinterMethods.gameInfo;
+  newLine = mockPrinterMethods.newLine;
+}
+
+mock.module("../printer", () => ({
+  PrinterService: MockPrinterService
+}));
+
 // Create shared mock functions that we can track
 const mockSupabaseMethods = {
   insertGames: mock(async (_games: GameEntrySupabase[]) => {}),
@@ -73,11 +129,6 @@ mock.module("../../next-games", () => ({
   getNextGames: mockGetNextGames
 }));
 
-const consoleSpy = {
-  log: spyOn(console, "log").mockImplementation(() => {}),
-  error: spyOn(console, "error").mockImplementation(() => {})
-};
-
 describe("CronService", () => {
   let cronService: CronService;
 
@@ -117,8 +168,8 @@ describe("CronService", () => {
     mockGetNextGames.mockClear();
     mockGetNextGames.mockResolvedValue([]);
 
-    consoleSpy.log.mockClear();
-    consoleSpy.error.mockClear();
+    // Clear printer mock methods
+    Object.values(mockPrinterMethods).forEach(mockMethod => mockMethod.mockClear());
 
     mockDayjs.mockClear();
     mockDayjs.mockImplementation((_date?: any) => createMockDayjs());
@@ -142,9 +193,7 @@ describe("CronService", () => {
   });
 
   afterEach(() => {
-    // Don't restore console spies, just clear them
-    // consoleSpy.log.mockRestore();
-    // consoleSpy.error.mockRestore();
+    // Cleanup if needed
   });
 
   describe("constructor", () => {
@@ -154,6 +203,7 @@ describe("CronService", () => {
       expect(service['EVERY_MINUTE']).toBe("* * * * *");
       expect(service['EVERY_DAY']).toBe("0 3 * * *");
       expect(service['FINISHED_STATUS']).toBe("Finalizado");
+      expect(service['IN_PROGRESS_STATUS']).toBe("En juego");
     });
   });
 
@@ -293,31 +343,15 @@ describe("CronService", () => {
       expect(result).toBe(mockJob as any);
     });
 
-    test("should call getWeekGames immediately and update todayGames", async () => {
-      const todayGames = [createMockGame({ code: "game-1" }), createMockGame({ code: "game-2" })];
-
-      let iterationCount = 0;
-      const mockDateChain = {
-        add: mock().mockReturnThis(),
-        subtract: mock().mockReturnThis(),
-        isSameOrBefore: mock().mockImplementation(() => {
-          iterationCount++;
-          return iterationCount <= 10;
-        }),
-        isSame: mock().mockImplementation(() => iterationCount === 5)
-      };
-
-      mockDayjs.mockReturnValue(mockDateChain);
-      mockGetNextGames.mockImplementation(async () => {
-        return iterationCount === 5 ? todayGames : [];
-      });
+    test("should not call getWeekGames immediately, only schedule the job", async () => {
+      const mockGetWeekGames = spyOn(cronService as any, 'getWeekGames');
 
       await cronService['startWeekGamesJob']();
 
-      // The actual implementation filters "today's games" correctly
-      // but the mock date chain doesn't perfectly match the real logic.
-      // Let's just check that the method ran without error and some games were processed
-      expect(mockGetNextGames).toHaveBeenCalled();
+      // getWeekGames should NOT be called immediately, only when the cron job runs
+      expect(mockGetWeekGames).not.toHaveBeenCalled();
+      expect(mockCron.schedule).toHaveBeenCalledWith("0 3 * * *", expect.any(Function));
+      expect(mockJob.start).toHaveBeenCalled();
     });
 
     test("should execute cron job callback correctly", async () => {
@@ -472,33 +506,20 @@ describe("CronService", () => {
       expect(result).toBe(mockJob as any);
     });
 
-    test("should log countdown when game hasn't started", async () => {
-      let cronCallback: Function;
-      mockCron.schedule.mockImplementation((pattern, callback) => {
-        cronCallback = callback;
-        return mockJob;
-      });
-
-      const game = createMockGame();
-      const mockGameStartTime = {
-        diff: mock().mockReturnValue(30)
-      };
-      const mockNow = {
-        isBefore: mock().mockReturnValue(true)
-      };
-
-      mockDayjs.mockImplementation((date?: any) => {
-        if (date) return mockGameStartTime;
-        return mockNow;
-      });
+    test("should start tracking and schedule cron job", async () => {
+      const game = createMockGame({ date: new Date("2024-01-15T15:00:00Z") });
 
       cronService['handleRealTimeGameJob'](game);
-      await cronCallback!();
 
-      // The test might find the game or not, depending on the real dayjs behavior
-      // Let's just check that some logging happened indicating game processing
-      expect(consoleSpy.log).toHaveBeenCalled();
-      // Either countdown or "can't find game" - both are valid outcomes with our mock setup
+      // Should call trackerStart printer method
+      expect(mockPrinterMethods.trackerStart).toHaveBeenCalledWith(
+        game.home_team.fullName,
+        game.away_team.fullName
+      );
+
+      // Should schedule a cron job with EVERY_MINUTE pattern
+      expect(mockCron.schedule).toHaveBeenCalledWith("* * * * *", expect.any(Function));
+      expect(mockJob.start).toHaveBeenCalled();
     });
 
     test("should fetch live games and process updates when game has started", async () => {
@@ -538,16 +559,10 @@ describe("CronService", () => {
 
       expect(mockGetNextGames).toHaveBeenCalledTimes(1);
       expect(mockSupabaseMethods.getGameByCode).toHaveBeenCalledWith("game-123");
-      // Check that status change was logged (looking for "Status Changed" in any call)
-      const statusChangeLogs = consoleSpy.log.mock.calls.filter(call =>
-        call.some(arg => typeof arg === 'string' && arg.includes('Status Changed'))
-      );
-      expect(statusChangeLogs.length).toBeGreaterThan(0);
-      // Check that goal was logged (looking for "GOAL" in any call)
-      const goalLogs = consoleSpy.log.mock.calls.filter(call =>
-        call.some(arg => typeof arg === 'string' && arg.includes('GOAL'))
-      );
-      expect(goalLogs.length).toBeGreaterThan(0);
+      // Check that status change was detected
+      expect(mockPrinterMethods.statusChanged).toHaveBeenCalledWith("En juego");
+      // Check that goal was logged
+      expect(mockPrinterMethods.goal).toHaveBeenCalled();
       expect(mockSupabaseMethods.updateGame).toHaveBeenCalledWith(liveGame);
     });
 
@@ -573,11 +588,11 @@ describe("CronService", () => {
       cronService['handleRealTimeGameJob'](game);
       await cronCallback!();
 
-      // Check that "Game Not Found" was logged
-      const notFoundLogs = consoleSpy.log.mock.calls.filter(call =>
-        call.some(arg => typeof arg === 'string' && arg.includes('Game Not Found'))
+      // Check that gameNotFound printer method was called
+      expect(mockPrinterMethods.gameNotFound).toHaveBeenCalledWith(
+        game.home_team.fullName,
+        game.away_team.fullName
       );
-      expect(notFoundLogs.length).toBeGreaterThan(0);
       expect(mockSupabaseMethods.getGameByCode).not.toHaveBeenCalled();
     });
 
@@ -648,11 +663,8 @@ describe("CronService", () => {
       cronService['handleRealTimeGameJob'](game);
       await cronCallback!();
 
-      // Check that goal was logged (looking for "GOAL" in any call)
-      const goalLogs = consoleSpy.log.mock.calls.filter(call =>
-        call.some(arg => typeof arg === 'string' && arg.includes('GOAL'))
-      );
-      expect(goalLogs.length).toBeGreaterThan(0);
+      // Check that goal printer method was called
+      expect(mockPrinterMethods.goal).toHaveBeenCalled();
     });
 
     test("should log when no goals are scored and status remains the same", async () => {
@@ -690,23 +702,14 @@ describe("CronService", () => {
       cronService['handleRealTimeGameJob'](game);
       await cronCallback!();
 
-      // Check that status remained the same (looking for "Status:" in any call)
-      const statusLogs = consoleSpy.log.mock.calls.filter(call =>
-        call.some(arg => typeof arg === 'string' && arg.includes('Status:'))
-      );
-      expect(statusLogs.length).toBeGreaterThan(0);
+      // Check that statusCurrent was called (no change)
+      expect(mockPrinterMethods.statusCurrent).toHaveBeenCalledWith("En juego");
 
-      // Check that "No goals scored" was logged
-      const noGoalsLogs = consoleSpy.log.mock.calls.filter(call =>
-        call.some(arg => typeof arg === 'string' && arg.includes('No goals scored'))
-      );
-      expect(noGoalsLogs.length).toBeGreaterThan(0);
+      // Check that noGoals printer method was called
+      expect(mockPrinterMethods.noGoals).toHaveBeenCalled();
 
-      // Ensure GOAL was not logged
-      const goalLogs = consoleSpy.log.mock.calls.filter(call =>
-        call.some(arg => typeof arg === 'string' && arg.includes('GOAL'))
-      );
-      expect(goalLogs.length).toBe(0);
+      // Ensure goal printer method was not called
+      expect(mockPrinterMethods.goal).not.toHaveBeenCalled();
 
       expect(mockSupabaseMethods.updateGame).toHaveBeenCalledWith(liveGame);
     });
@@ -746,32 +749,28 @@ describe("CronService", () => {
   });
 
   describe("start", () => {
-    test("should handle empty todayGames array", async () => {
-      // Mock getWeekGames to return empty array
-      let iterationCount = 0;
-      const mockDateChain: any = {
-        add: mock(),
-        subtract: mock(),
-        isSameOrBefore: mock().mockImplementation(() => {
-          iterationCount++;
-          return iterationCount <= 10;
-        }),
-        isSame: mock().mockReturnValue(false) // No games today
-      };
-      mockDateChain.add.mockReturnValue(mockDateChain);
-      mockDateChain.subtract.mockReturnValue(mockDateChain);
-
-      mockDayjs.mockReturnValue(mockDateChain);
-      mockGetNextGames.mockResolvedValue([]);
-
-      const mockHandleRealTimeGameJob = spyOn(cronService as any, 'handleRealTimeGameJob');
-
+    test("should call serviceStart and schedule the weekly job", async () => {
       await cronService.start();
-      
-      expect(mockHandleRealTimeGameJob).not.toHaveBeenCalled();
+
+      expect(mockPrinterMethods.serviceStart).toHaveBeenCalled();
+      expect(mockCron.schedule).toHaveBeenCalledWith("0 3 * * *", expect.any(Function));
+      expect(mockJob.start).toHaveBeenCalled();
     });
 
-    test("should call handleRealTimeGameJob for all today's games regardless of status", async () => {
+    test("should call handleRealTimeGames when cron job callback executes with today's games", async () => {
+      let weekGamesCronCallback: Function;
+
+      // Capture both cron callbacks
+      let callbackCount = 0;
+      mockCron.schedule.mockImplementation((_, callback) => {
+        callbackCount++;
+        if (callbackCount === 1) {
+          // First call is from startWeekGamesJob
+          weekGamesCronCallback = callback;
+        }
+        return mockJob;
+      });
+
       const todayGames = [
         createMockGame({
           code: "game-in-progress",
@@ -789,7 +788,7 @@ describe("CronService", () => {
         })
       ];
 
-      // Mock getWeekGames directly to return todayGames
+      // Mock getWeekGames to return todayGames
       spyOn(cronService as any, 'getWeekGames').mockResolvedValue(todayGames);
 
       // Mock dayjs to make isToday() return true
@@ -801,76 +800,36 @@ describe("CronService", () => {
         return createMockDayjs();
       });
 
-      // Track calls to handleRealTimeGameJob by mocking it on the instance
-      let handleRealTimeGameJobCalls: GameEntrySupabase[] = [];
-      const mockHandleRealTimeGameJobMethod = mock((game: GameEntrySupabase) => {
-        handleRealTimeGameJobCalls.push(game);
-        return mockJob;
-      });
-
-      (cronService as any)['handleRealTimeGameJob'] = mockHandleRealTimeGameJobMethod;
-
       await cronService.start();
 
-      // handleRealTimeGameJob should be called for all today's games
-      expect(handleRealTimeGameJobCalls.length).toBe(2);
-      expect(handleRealTimeGameJobCalls[0]!).toEqual(todayGames[0]!);
-      expect(handleRealTimeGameJobCalls[1]!).toEqual(todayGames[1]!);
+      // Execute the week games cron callback
+      await weekGamesCronCallback!();
+
+      // Check that printer methods were called
+      expect(mockPrinterMethods.todaysGamesHeader).toHaveBeenCalledWith(2);
+      expect(mockPrinterMethods.gameInfo).toHaveBeenCalledTimes(2);
+      expect(mockPrinterMethods.trackerStart).toHaveBeenCalledTimes(2);
+      // Verify that handleRealTimeGameJob was called (which schedules more cron jobs)
+      expect(mockCron.schedule).toHaveBeenCalledTimes(3); // 1 for week job + 2 for real-time jobs
     });
 
-    test("should call handleRealTimeGameJob for multiple today's games", async () => {
-      const todayGames = [
-        createMockGame({
-          code: "game-1",
-          status: "En juego",
-          datetime: new Date(),
-          home_team: { fullName: "Real Madrid" },
-          away_team: { fullName: "Barcelona" }
-        }),
-        createMockGame({
-          code: "game-2",
-          status: "Programado",
-          datetime: new Date(),
-          home_team: { fullName: "Atletico Madrid" },
-          away_team: { fullName: "Sevilla" }
-        }),
-        createMockGame({
-          code: "game-3",
-          status: "Programado",
-          datetime: new Date(),
-          home_team: { fullName: "Valencia" },
-          away_team: { fullName: "Villarreal" }
-        })
-      ];
-
-      // Mock getWeekGames directly to return todayGames
-      spyOn(cronService as any, 'getWeekGames').mockResolvedValue(todayGames);
-
-      // Mock dayjs to make isToday() return true
-      const mockDateInstance = {
-        isToday: mock().mockReturnValue(true)
-      };
-      mockDayjs.mockImplementation((date?: any) => {
-        if (date) return mockDateInstance;
-        return createMockDayjs();
-      });
-
-      // Track calls to handleRealTimeGameJob by mocking it on the instance
-      let handleRealTimeGameJobCalls: GameEntrySupabase[] = [];
-      const mockHandleRealTimeGameJobMethod = mock((game: GameEntrySupabase) => {
-        handleRealTimeGameJobCalls.push(game);
+    test("should handle empty games when cron callback executes", async () => {
+      let cronCallback: Function;
+      mockCron.schedule.mockImplementation((pattern, callback) => {
+        cronCallback = callback;
         return mockJob;
       });
 
-      (cronService as any)['handleRealTimeGameJob'] = mockHandleRealTimeGameJobMethod;
+      // Mock getWeekGames to return empty array
+      spyOn(cronService as any, 'getWeekGames').mockResolvedValue([]);
 
       await cronService.start();
 
-      // handleRealTimeGameJob should be called for all today's games
-      expect(handleRealTimeGameJobCalls.length).toBe(3);
-      expect(handleRealTimeGameJobCalls[0]!).toEqual(todayGames[0]!);
-      expect(handleRealTimeGameJobCalls[1]!).toEqual(todayGames[1]!);
-      expect(handleRealTimeGameJobCalls[2]!).toEqual(todayGames[2]!);
+      // Execute the cron callback
+      await cronCallback!();
+
+      // Should call noGamesToday when there are no games
+      expect(mockPrinterMethods.noGamesToday).toHaveBeenCalled();
     });
 
     test("should not call handleRealTimeGameJob for games that are not today", async () => {
@@ -914,7 +873,7 @@ describe("CronService", () => {
         if (date) return mockDateInstance;
         return mockDateChain;
       });
-      
+
       mockGetNextGames.mockImplementation(async () => {
         return iterationCount === 5 ? todayGames : [];
       });
@@ -976,10 +935,7 @@ describe("CronService", () => {
       // Real-time jobs are created based on today's games, which may be 0 in this mock setup
       expect(mockJob.start).toHaveBeenCalled();
       // Check that service started
-      const startLogs = consoleSpy.log.mock.calls.filter(call =>
-        call.some(arg => typeof arg === 'string' && (arg.includes('Service Started') || arg.includes('Match Tracker')))
-      );
-      expect(startLogs.length).toBeGreaterThan(0);
+      expect(mockPrinterMethods.serviceStart).toHaveBeenCalled();
     });
   });
 
