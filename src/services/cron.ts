@@ -159,6 +159,7 @@ export class CronService {
             Number(liveGame.score.homeTeam.totalScore),
             Number(liveGame.score.awayTeam.totalScore),
           );
+
           job.stop();
         }
       } catch (error) {

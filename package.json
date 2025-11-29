@@ -8,7 +8,8 @@
     "start": "bun run src/index.ts",
     "lint": "oxlint",
     "prepare": "husky",
-    "lint-staged": "lint-staged"
+    "lint-staged": "lint-staged",
+    "playground": "bun run src/playground.ts"
   },
   "devDependencies": {
     "@types/bun": "latest",
