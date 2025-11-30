@@ -107,6 +107,19 @@ mock.module("../telegram", () => ({
   TelegramService: MockTelegramService
 }));
 
+// Mock UserStatsService
+const mockUserStatsServiceMethods = {
+  handleFinishedGame: mock(async (_gameCode: string) => {})
+};
+
+class MockUserStatsService {
+  handleFinishedGame = mockUserStatsServiceMethods.handleFinishedGame;
+}
+
+mock.module("../user-stats", () => ({
+  UserStatsService: MockUserStatsService
+}));
+
 const createMockDayjs = () => ({
   add: mock().mockReturnThis(),
   subtract: mock().mockReturnThis(),
@@ -188,6 +201,10 @@ describe("CronService", () => {
     mockTelegramMethods.sendStartup.mockClear();
     mockTelegramMethods.sendShutdown.mockClear();
     mockTelegramMethods.sendError.mockClear();
+
+    // Clear user stats mock methods
+    mockUserStatsServiceMethods.handleFinishedGame.mockClear();
+    mockUserStatsServiceMethods.handleFinishedGame.mockResolvedValue(undefined);
 
     cronService = new CronService();
   });

@@ -4,6 +4,7 @@ import { TelegramService } from "./telegram";
 import { PrinterService } from "./printer";
 import dayjs from "../utils/dates";
 import { getNextGames, type GameEntrySupabase } from "../next-games";
+import { UserStatsService } from "./user-stats";
 
 export class CronService {
   private EVERY_MINUTE = "* * * * *" as const;
@@ -15,11 +16,13 @@ export class CronService {
   private supabase: SupabaseService;
   private telegram: TelegramService;
   private printer: PrinterService;
+  private userStatsService: UserStatsService;
 
   constructor() {
     this.supabase = new SupabaseService();
     this.telegram = new TelegramService();
     this.printer = PrinterService.getInstance();
+    this.userStatsService = new UserStatsService();
   }
 
   private async getWeekGames() {
@@ -155,10 +158,13 @@ export class CronService {
         await this.supabase.updateGame(liveGame);
 
         if (liveGame.status === this.FINISHED_STATUS) {
+          await this.userStatsService.handleFinishedGame(liveGame.code);
+
           this.printer.gameFinished(
             Number(liveGame.score.homeTeam.totalScore),
             Number(liveGame.score.awayTeam.totalScore),
           );
+
           job.stop();
         }
       } catch (error) {
